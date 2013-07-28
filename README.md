@@ -2,7 +2,7 @@ HLS Probe Utility
 =================
 
 Utility to detect errors in HTTP Live Streams (Apple HLS).
-It may be used regular monitoring tool and mediaserver stress testing.
+It may be used as regular monitoring tool and for mediaserver stress testing.
 Features are:
 
  * parse M3U8-playlists (variant and single-bitrate playlists supported)

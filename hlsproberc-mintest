@@ -1,0 +1,32 @@
+# mode: yaml
+streams:
+  # Just place here URIs to variant playlists or chunklists
+  - http://example.com/playlist1.m3u8
+  - http://example.com/playlist2.m3u8
+  # You may group links (for example group channels by servers).
+  # Groups in this list is optional, in simple case you just place links to playlists without group hierarchy.
+  - bad:
+      - http://sfe3.rt.bradburylab.tv/live/_definst_/bad.m3u8
+      - http://sfe8.rt.bradburylab.tv/live/_definst_/not-exist.m3u8
+  - good:
+      - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zeetv_sd.smil/playlist.m3u8
+      - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zhivi_sd.smil/playlist.m3u8
+      - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zoopark_sd.smil/playlist.m3u8
+notify:
+  report-threshold: 2
+  addresses: grafov@gmail.com, grafov@bradburylab.com
+  author: hlsprobe@nautilus.bradburylab.tv
+  subject: HLS probe on $HOSTNAME alert
+sleep:
+  playlist-open: 0
+  streams-list: 2
+timeout:
+  target-duration: 150
+  read: 12
+  keep-error: 10
+  spam: 120
+workers:
+  stream-probers: 8
+  media-probers: 32
+mode:
+  one-segment: true

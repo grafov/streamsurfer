@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/grafov/m3u8"
 	"os"
 	"os/signal"
@@ -23,10 +24,14 @@ TODO
 */
 
 func main() {
+	var config = flag.String("config", "", "alternative configuration file")
+
 	print("HLS Probe vers. ")
 	print(VERSION)
 	print("\n")
-	go SourceLoader()
+	flag.Parse()
+
+	go SourceLoader(*config)
 	go HttpAPI()
 
 	terminate := make(chan os.Signal)
