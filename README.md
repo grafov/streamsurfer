@@ -1,6 +1,8 @@
 HLS Probe Utility
 =================
 
+**The code doesn't work now! Development in progress**
+
 Utility to detect errors in HTTP Live Streams (Apple HLS).
 It may be used as regular monitoring tool and for mediaserver stress testing.
 Features are:
