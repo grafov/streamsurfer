@@ -1,32 +1,25 @@
 # mode: yaml
-streams:
+hls-streams:
   # Just place here URIs to variant playlists or chunklists
   - http://example.com/playlist1.m3u8
   - http://example.com/playlist2.m3u8
-  # You may group links (for example group channels by servers).
-  # Groups in this list is optional, in simple case you just place links to playlists without group hierarchy.
-  - bad:
-      - http://sfe3.rt.bradburylab.tv/live/_definst_/bad.m3u8
-      - http://sfe8.rt.bradburylab.tv/live/_definst_/not-exist.m3u8
-  - good:
-      - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zeetv_sd.smil/playlist.m3u8
-      - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zhivi_sd.smil/playlist.m3u8
-      - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zoopark_sd.smil/playlist.m3u8
-notify:
-  report-threshold: 2
-  addresses: grafov@gmail.com, grafov@bradburylab.com
-  author: hlsprobe@nautilus.bradburylab.tv
-  subject: HLS probe on $HOSTNAME alert
-sleep:
-  playlist-open: 0
-  streams-list: 2
-timeout:
-  target-duration: 150
-  read: 12
-  keep-error: 10
-  spam: 120
+  - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zeetv_sd.smil/playlist.m3u8
+  - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zhivi_sd.smil/playlist.m3u8
+  - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zoopark_sd.smil/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Rubi_sparks__trailer/smil:sd_2012_Rubi_sparks__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2013_Odinikiy_raindger_trailer/smil:sd_2013_Odinikiy_raindger_trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Sem_psihopatov_trailer/smil:sd_2012_Sem_psihopatov_trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Ralf__trailer/smil:sd_2012_Ralf__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Ya_aleks_kross__trailer/smil:sd_2012_Ya_aleks_kross__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Tolstyak_na_ringe__trailer/smil:sd_2012_Tolstyak_na_ringe__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Sudia_Dredd_trailer/smil:sd_2012_Sudia_Dredd_trailer/playlist.m3u8
+http-streams:
+  - http://wvv.rt.bradburylab.tv/00/70/sd_2012_Masha_i_medved_28_hod_konem__film.wvm
+samples:
+  - http://ya.ru
+  - http://google.com
 workers:
-  stream-probers: 8
+  stream-probers: 4
   media-probers: 32
-mode:
+options:
   one-segment: true

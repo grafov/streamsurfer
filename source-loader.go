@@ -1,7 +1,7 @@
+// Load configuration
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
@@ -9,11 +9,11 @@ import (
 )
 
 // Parse config and run stream monitors
-func SourceLoader(confile string) {
-	ReadConfig(confile)
-}
+// func SourceLoader(confile string) {
+//	ReadConfig(confile)
+//}
 
-func ReadConfig(confile string) (cfg Config) {
+func ReadConfig(confile string) (cfg *Config) {
 	/*	cfg = config{
 			Streams:  stream{name: "localhost:1234"},
 			workers:  workers{1, 1},
@@ -21,8 +21,7 @@ func ReadConfig(confile string) (cfg Config) {
 			Options:  Options{tryOneSegment: true},
 		}
 	*/
-	//cfg = make(map[string]interface{})
-	cfg = Config{}
+	cfg = &Config{}
 	// TODO второй конфиг из /etc/hlsproberc
 	if confile == "" {
 		confile = "~/.hlsproberc"
@@ -30,9 +29,11 @@ func ReadConfig(confile string) (cfg Config) {
 	data, e := ioutil.ReadFile(os.ExpandEnv(strings.Replace(confile, "~", os.Getenv("HOME"), 1)))
 	if e == nil {
 		e = goyaml.Unmarshal(data, &cfg)
-		fmt.Printf("%+v %+v", cfg, e)
+		if e != nil {
+			print("Config file parsing failed. Hardcoded defaults used.\n")
+		}
 	} else {
-		print("Config file not found or parsing failed. Hardcoded defaults used.\n")
+		print("Config file not found. Hardcoded defaults used.\n")
 	}
 	return
 }
@@ -40,9 +41,11 @@ func ReadConfig(confile string) (cfg Config) {
 /* Datatypes */
 
 type Config struct {
-	Streams []string `yaml:"streams"`
-	Workers Workers  `yaml:"workers"`
-	Options Options  `yaml:"options"`
+	StreamsHTTP []string `yaml:"hls-streams"`  // потоки для проверки HLS
+	StreamsHLS  []string `yaml:"http-streams"` // потоки для проверки только HTTP, без парсинга HLS
+	Samples     []string `yaml:"samples"`
+	Workers     Workers  `yaml:"workers"`
+	Options     Options  `yaml:"options"`
 }
 
 //type stream map[string]interface{}

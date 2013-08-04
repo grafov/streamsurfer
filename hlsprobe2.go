@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/grafov/m3u8"
 	"os"
 	"os/signal"
 )
@@ -24,38 +23,23 @@ TODO
 */
 
 func main() {
-	var config = flag.String("config", "", "alternative configuration file")
+	var confname = flag.String("config", "", "alternative configuration file")
 
 	print("HLS Probe vers. ")
 	print(VERSION)
 	print("\n")
 	flag.Parse()
 
-	go SourceLoader(*config)
+	//cfgq := make(chan ConfigQuery, 12)
+	//go SourceLoader(*config, cfgq)
+	cfg := ReadConfig(*confname)
+	go StreamMonitor(cfg)
 	go HttpAPI()
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)
 	<-terminate
 	print("...probe service interrupted.\n")
-}
-
-// Control monitoring of a single stream
-func StreamMonitor() {
-
-}
-
-// Parse and probe M3U8 playlists (multi- and single bitrate)
-// and report time statistics and errors
-func CupertinoProbe() {
-	m3u8.NewMasterPlaylist()
-
-}
-
-// Parse and probe media chunk
-// and report time statistics and errors
-func MediaProbe() {
-
 }
 
 // Top level problem analyzer
