@@ -3,11 +3,31 @@ hls-streams:
   # Just place here URIs to variant playlists or chunklists
   - http://example.com/playlist1.m3u8
   - http://example.com/playlist2.m3u8
+  - http://notexistent.domain/link.html
+  - aospijfwoijfwef
+  - http://sfe1.rt.bradburylab.tv/live/_definst_/smil:zeetv_sd.smil/playlist.m3u8
+  - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zeetv_sd.smil/playlist.m3u8
+  - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zhivi_sd.smil/playlist.m3u8
+  - http://sfe3.rt.bradburylab.tv/live/_definst_/smil:zoopark_sd.smil/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Rubi_sparks__trailer/smil:sd_2012_Rubi_sparks__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2013_Odinikiy_raindger_trailer/smil:sd_2013_Odinikiy_raindger_trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Sem_psihopatov_trailer/smil:sd_2012_Sem_psihopatov_trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Ralf__trailer/smil:sd_2012_Ralf__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Ya_aleks_kross__trailer/smil:sd_2012_Ya_aleks_kross__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Tolstyak_na_ringe__trailer/smil:sd_2012_Tolstyak_na_ringe__trailer/playlist.m3u8
+  - http://fe01.vip.bradburylab.tv/vod/_definst_/trailers/00/sd_2012_Sudia_Dredd_trailer/smil:sd_2012_Sudia_Dredd_trailer/playlist.m3u8
+http-streams:
+  - http://wvv.rt.bradburylab.tv/00/70/sd_2012_Masha_i_medved_28_hod_konem__film.wvm
 samples:
   - http://ya.ru
   - http://google.com
-workers:
-  stream-probers: 4
+params:
+  http-probers: 4
+  hls-probers: 4
   media-probers: 32
+  connect-timeout: 1
+  rw-timeout: 2
+  time-between-tasks: 20
+  http-api-listen: 127.1:8088
 options:
   one-segment: true

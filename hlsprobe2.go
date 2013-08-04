@@ -33,8 +33,11 @@ func main() {
 	//cfgq := make(chan ConfigQuery, 12)
 	//go SourceLoader(*config, cfgq)
 	cfg := ReadConfig(*confname)
+
+	statq := make(chan Stats, 1024)
+	go StatsKeeper(cfg, statq)
 	go StreamMonitor(cfg)
-	go HttpAPI()
+	go HttpAPI(cfg)
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)
@@ -51,8 +54,4 @@ func ProblemAnalyzer() {
 // Report found problems from problem analyzer
 // Maybe several methods to report problems of different prirority
 func ProblemReporter() {
-}
-
-// Offers HTTP REST API to control probe service and view statistics
-func HttpAPI() {
 }

@@ -10,14 +10,16 @@ Features are:
  * parse M3U8-playlists (variant and single-bitrate playlists supported)
  * detect bad playlists format (empty playlists, incorrect chunk durations)
  * check HTTP response statuses and webserver timeouts
+ * collects response time statistics
+ * offers HTTP API to represent collected statistics
 
 Planned features:
 
- * probe chunks with `mediainfo` utility (from libav)
+ * probe chunks with `mediainfo` utility (from ffmpeg)
 
 This utility can't be used for HLS playback.
 
-`hlsprobe2` is a port of Python `hlsprobe` (https://github.com/grafov/hlsprobe).
+`hlsprobe2` is an improved port of Python `hlsprobe` (https://github.com/grafov/hlsprobe).
 
 Install
 -------
@@ -31,10 +33,11 @@ TODO Instructions follows later.
 You need Go language (http://golang.org) environment installed.
 Then:
 
-				go get https://github.com/grafov/m3u8
-				git clone https://github.com/grafov/hlsprobe2
-				cd hlsprobe2
-				sudo make install
+		go get github.com/grafov/m3u8
+		go get github.com/gorilla/mux
+		git clone https://github.com/grafov/hlsprobe2
+		cd hlsprobe2
+		sudo make install
 
 Similar projects
 ----------------

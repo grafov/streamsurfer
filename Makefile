@@ -1,4 +1,4 @@
-SOURCES=hlsprobe2.go source-loader.go stream-monitor.go http-client.go
+SOURCES=hlsprobe2.go source-loader.go stream-monitor.go http-client.go http-api.go stats.go
 
 hlsprobe2: $(SOURCES)
 	go build $(SOURCES)

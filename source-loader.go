@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goyaml"
 	"os"
 	"strings"
+	"time"
 )
 
 // Parse config and run stream monitors
@@ -44,7 +45,7 @@ type Config struct {
 	StreamsHTTP []string `yaml:"hls-streams"`  // потоки для проверки HLS
 	StreamsHLS  []string `yaml:"http-streams"` // потоки для проверки только HTTP, без парсинга HLS
 	Samples     []string `yaml:"samples"`
-	Workers     Workers  `yaml:"workers"`
+	Params      Params   `yaml:"params"`
 	Options     Options  `yaml:"options"`
 }
 
@@ -55,9 +56,14 @@ type stream struct {
 	//members *stream // link to stream group members (nil if the item is a stream not a group)
 }
 
-type Workers struct {
-	StreamProbers uint `yaml:"stream-probers,omitempty"`
-	MediaProbers  uint `yaml:"media-probers"`
+type Params struct {
+	ProbersHTTP      uint          `yaml:"http-probers"`
+	ProbersHLS       uint          `yaml:"hls-probers"`
+	MediaProbers     uint          `yaml:"media-probers"`
+	ConnectTimeout   time.Duration `yaml:"connect-timeout"`
+	RWTimeout        time.Duration `yaml:"rw-timeout"`
+	TimeBetweenTasks time.Duration `yaml:"time-between-tasks"`
+	ListenHTTP       string        `yaml:"http-api-listen"`
 }
 
 type Options struct {
