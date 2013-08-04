@@ -15,6 +15,7 @@ Features are:
 
 Planned features:
 
+ * integration with Zabbix monitoring software
  * probe chunks with `mediainfo` utility (from ffmpeg)
 
 This utility can't be used for HLS playback.

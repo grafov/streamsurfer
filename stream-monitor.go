@@ -35,11 +35,11 @@ type Task struct {
 	URI  string
 	Type StreamType
 	//	Name    string
-	ReplyTo chan Result
+	ReplyTo chan TaskResult
 }
 
 // Stream checking result
-type Result struct {
+type TaskResult struct {
 	Type          ErrType
 	HTTPCode      int    // HTTP status code
 	HTTPStatus    string // HTTP status string
@@ -77,11 +77,14 @@ func StreamMonitor(cfg *Config) {
 
 // Container for keeping info about each stream checks
 func Stream(uri string, streamType StreamType, taskq chan *Task) {
-	task := &Task{URI: uri, Type: streamType, ReplyTo: make(chan Result)}
+	task := &Task{URI: uri, Type: streamType, ReplyTo: make(chan TaskResult)}
 	for {
 		taskq <- task
 		result := <-task.ReplyTo
-		fmt.Printf("%v %s\n", result, uri)
+		//fmt.Printf("%v %s\n", result, uri)
+		if result.Type != SUCCESS {
+			go Log("Error", *task, result)
+		}
 		time.Sleep(3 * time.Second)
 	}
 }
@@ -129,8 +132,8 @@ func MediaProber(cfg *Config, taskq chan *Task) {
 }
 
 // Helper. Execute stream check task and return result with check status.
-func doTask(cfg *Config, task *Task) (*http.Response, *Result) {
-	result := &Result{Started: time.Now(), Elapsed: 0 * time.Second}
+func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
+	result := &TaskResult{Started: time.Now(), Elapsed: 0 * time.Second}
 	if !strings.HasPrefix(task.URI, "http://") && !strings.HasPrefix(task.URI, "https://") {
 		result.Type = BADURI
 		result.HTTPCode = 0
@@ -166,7 +169,7 @@ func doTask(cfg *Config, task *Task) (*http.Response, *Result) {
 }
 
 // Helper. Verify HLS specific things.
-func verifyHLS(cfg *Config, task *Task, response *http.Response, result *Result) {
+func verifyHLS(cfg *Config, task *Task, response *http.Response, result *TaskResult) {
 	playlist, listType, err := m3u8.Decode(bufio.NewReader(response.Body), false)
 	if err != nil {
 		fmt.Println(err)

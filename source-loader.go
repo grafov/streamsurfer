@@ -64,6 +64,7 @@ type Params struct {
 	RWTimeout        time.Duration `yaml:"rw-timeout"`
 	TimeBetweenTasks time.Duration `yaml:"time-between-tasks"`
 	ListenHTTP       string        `yaml:"http-api-listen"`
+	ErrorLog         string        `yaml:"error-log"`
 }
 
 type Options struct {

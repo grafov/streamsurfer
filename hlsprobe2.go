@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 )
@@ -25,6 +27,15 @@ TODO
 func main() {
 	var confname = flag.String("config", "", "alternative configuration file")
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("HLS Probe trace dumped:", r)
+			if err := ioutil.WriteFile("~/hlsprobe2.trace", r.([]byte), 0644); err != nil {
+				fmt.Println("Can't write trace file!")
+			}
+		}
+	}()
+
 	print("HLS Probe vers. ")
 	print(VERSION)
 	print("\n")
@@ -34,8 +45,8 @@ func main() {
 	//go SourceLoader(*config, cfgq)
 	cfg := ReadConfig(*confname)
 
-	statq := make(chan Stats, 1024)
-	go StatsKeeper(cfg, statq)
+	go LogKeeper(cfg)
+	go StatsKeeper(cfg)
 	go StreamMonitor(cfg)
 	go HttpAPI(cfg)
 
