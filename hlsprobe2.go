@@ -30,7 +30,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("HLS Probe trace dumped:", r)
-			if err := ioutil.WriteFile("~/hlsprobe2.trace", r.([]byte), 0644); err != nil {
+			if err := ioutil.WriteFile(FullPath("~/hlsprobe2.trace"), r.([]byte), 0644); err != nil {
 				fmt.Println("Can't write trace file!")
 			}
 		}

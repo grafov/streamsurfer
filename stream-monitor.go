@@ -24,7 +24,10 @@ const (
 	BADURI
 	LISTEMPTY // HLS specific
 	BADFORMAT // HLS specific
-	TIMEOUT
+	RTIMEOUT  // on read
+	CTIMEOUT  // on connect
+	HLSPARSER // HLS parser error (debug)
+	UNKNOWN
 )
 
 type StreamType uint // Type of checked streams
@@ -68,15 +71,16 @@ func StreamMonitor(cfg *Config) {
 		go MediaProber(cfg, chunktasks)
 	}
 	for _, stream := range cfg.StreamsHTTP {
-		go Stream(stream, HTTP, httptasks)
+		go Stream(cfg, stream, HTTP, httptasks)
 	}
 	for _, stream := range cfg.StreamsHLS {
-		go Stream(stream, HLS, hlstasks)
+		go Stream(cfg, stream, HLS, hlstasks)
 	}
+
 }
 
 // Container for keeping info about each stream checks
-func Stream(uri string, streamType StreamType, taskq chan *Task) {
+func Stream(cfg *Config, uri string, streamType StreamType, taskq chan *Task) {
 	task := &Task{URI: uri, Type: streamType, ReplyTo: make(chan TaskResult)}
 	for {
 		taskq <- task
@@ -84,6 +88,10 @@ func Stream(uri string, streamType StreamType, taskq chan *Task) {
 		//fmt.Printf("%v %s\n", result, uri)
 		if result.Type != SUCCESS {
 			go Log("Error", *task, result)
+		} else {
+			if result.Elapsed >= cfg.Params.WarningTimeout*time.Second {
+				go Log("Warn", *task, result)
+			}
 		}
 		time.Sleep(3 * time.Second)
 	}
@@ -111,7 +119,7 @@ func CupertinoProber(cfg *Config, tasks chan *Task) {
 	for {
 		task := <-tasks
 		response, result := doTask(cfg, task)
-		if result.Type != TIMEOUT {
+		if result.Type != CTIMEOUT {
 			verifyHLS(cfg, task, response, result)
 			// вернуть variants и по ним передать задачи в канал CupertinoProber
 		}
@@ -153,7 +161,7 @@ func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
-		result.Type = TIMEOUT
+		result.Type = UNKNOWN
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
@@ -170,19 +178,51 @@ func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
 
 // Helper. Verify HLS specific things.
 func verifyHLS(cfg *Config, task *Task, response *http.Response, result *TaskResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("trace dumped:", r)
+			result.Type = RTIMEOUT
+		}
+	}()
+
 	playlist, listType, err := m3u8.Decode(bufio.NewReader(response.Body), false)
 	if err != nil {
-		fmt.Println(err)
-	}
-	switch listType {
-	case m3u8.MASTER:
-		m := playlist.(*m3u8.MasterPlaylist)
-		fmt.Printf("%+v", m.Variants[0])
-		fmt.Println(m.Encode().String())
-	case m3u8.MEDIA:
-		p := playlist.(*m3u8.MediaPlaylist)
-		fmt.Println(p.Encode().String())
-	default:
 		result.Type = BADFORMAT
+	} else {
+		switch listType {
+		case m3u8.MASTER:
+			m := playlist.(*m3u8.MasterPlaylist)
+			fmt.Printf("%+v", m.Variants[0])
+			fmt.Println(m.Encode().String())
+		case m3u8.MEDIA:
+			p := playlist.(*m3u8.MediaPlaylist)
+			fmt.Println(p.Encode().String())
+		default:
+			result.Type = BADFORMAT
+		}
+	}
+}
+
+// Text representation of stream error
+func StreamErrText(err ErrType) string {
+	switch err {
+	case SUCCESS:
+		return "success"
+	case BADSTATUS:
+		return "bad status"
+	case BADURI:
+		return "bad URI"
+	case LISTEMPTY: // HLS specific
+		return "list empty"
+	case BADFORMAT: // HLS specific
+		return "bad format"
+	case RTIMEOUT:
+		return "on read timeout"
+	case CTIMEOUT:
+		return "connection timeout"
+	case HLSPARSER:
+		return "HLS parser" // debug
+	default:
+		return "unknown"
 	}
 }

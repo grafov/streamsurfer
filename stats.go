@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const layout = "Jan 2, 2006 at 3:04pm (MST)"
+const timeFormat = "2006-01-02 15:04:05 MST"
 
 var (
 	logq  chan LogMessage
@@ -38,13 +38,16 @@ func StatsKeeper(cfg *Config) {
 
 func LogKeeper(cfg *Config) {
 	var skip error
+	var logw *bufio.Writer
 
 	logq = make(chan LogMessage, 1024)
 	logf, skip := os.Create(cfg.Params.ErrorLog)
 	if skip != nil {
 		fmt.Printf("Can't create file for error log. Error logging to file skiped.")
+	} else {
+		logw = bufio.NewWriter(logf)
+		fmt.Printf("Error log: %s\n", cfg.Params.ErrorLog)
 	}
-	logw := bufio.NewWriter(logf)
 	timeout := make(chan bool, 1)
 
 	for {
@@ -56,8 +59,11 @@ func LogKeeper(cfg *Config) {
 		select {
 		case msg := <-logq:
 			if skip == nil {
-				// конвертировать и вывести
-				logw.WriteString(msg.Started.Format(layout))
+				logw.WriteString(msg.Started.Format(timeFormat))
+				logw.WriteRune('\t')
+				logw.WriteString(msg.Text)
+				logw.WriteString(": ")
+				logw.WriteString(StreamErrText(msg.TaskResult.Type))
 				logw.WriteRune('\t')
 				logw.WriteString(strconv.Itoa(msg.HTTPCode))
 				logw.WriteRune('\t')
