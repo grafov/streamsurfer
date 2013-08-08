@@ -2,26 +2,33 @@
 package main
 
 import (
+	"bufio"
+	//	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"net/http"
+	"strings"
 	"time"
 )
 
-/* Datatypes */
-
+// Exported config structure
 type Config struct {
-	StreamsHLS  []string `yaml:"hls-streams"`  // потоки для проверки HLS
-	StreamsHTTP []string `yaml:"http-streams"` // потоки для проверки только HTTP, без парсинга HLS
-	Samples     []string `yaml:"samples"`
-	Params      Params   `yaml:"params"`
-	Options     Options  `yaml:"options"`
+	StreamsHLS  []Stream
+	StreamsHTTP []Stream
+	Samples     []string
+	Params      Params
+	Options     Options
 }
 
-//type stream map[string]interface{}
-type stream struct {
-	URI   string
-	Title string // optional title of stream or mandatory title of a group
-	//members *stream // link to stream group members (nil if the item is a stream not a group)
+// Internal config structure parsed from YAML
+type config struct {
+	StreamsHLS     map[string][]string `yaml:"hls-streams"`      // потоки для проверки HLS
+	StreamsHTTP    map[string][]string `yaml:"http-streams"`     // потоки для проверки только HTTP, без парсинга HLS
+	GetStreamsHLS  []string            `yaml:"get-hls-streams"`  // ссылка на внешний список потоков HLS
+	GetStreamsHTTP []string            `yaml:"get-http-streams"` // ссылка на внешний список потоков HTTP
+	Samples        []string            `yaml:"samples"`
+	Params         Params              `yaml:"params"`
+	Options        Options             `yaml:"options"`
 }
 
 type Params struct {
@@ -45,16 +52,10 @@ type Options struct {
 //	ReadConfig(confile)
 //}
 
-func ReadConfig(confile string) (cfg *Config) {
-	//cfg = &Config{StreamsHLS: make(map[string]interface{})}
-	/*	cfg = config{
-			Streams:  stream{name: "localhost:1234"},
-			workers:  workers{1, 1},
-			timeouts: timeouts{12, 12},
-			Options:  Options{tryOneSegment: true},
-		}
-	*/
-	cfg = &Config{}
+func ReadConfig(confile string) (Cfg *Config) {
+	var cfg = &config{}
+
+	Cfg = &Config{}
 	// TODO второй конфиг из /etc/hlsproberc
 	if confile == "" {
 		confile = "~/.hlsproberc"
@@ -65,8 +66,69 @@ func ReadConfig(confile string) (cfg *Config) {
 		if e != nil {
 			print("Config file parsing failed. Hardcoded defaults used.\n")
 		}
+		Cfg.Params = cfg.Params
+		Cfg.Options = cfg.Options
+		for groupName, streamList := range cfg.StreamsHLS {
+			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
+		}
+		for groupName, streamList := range cfg.StreamsHTTP {
+			addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
+		}
+		if cfg.GetStreamsHLS != nil {
+			for _, source := range cfg.GetStreamsHLS {
+				groupURI, groupName := splitName(source)
+				addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI)
+			}
+		}
+		if cfg.GetStreamsHTTP != nil {
+			for _, source := range cfg.GetStreamsHTTP {
+				groupURI, groupName := splitName(source)
+				addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI)
+			}
+		}
 	} else {
 		print("Config file not found. Hardcoded defaults used.\n")
 	}
 	return
+}
+
+// Helper. Split stream link to URI and Name parts.
+func splitName(source string) (uri string, name string) {
+	splitted := strings.SplitN(source, " ", 2)
+	uri = splitted[0]
+	if len(splitted) > 1 && splitted[1] != "" {
+		name = splitted[1]
+	} else {
+		name = strings.SplitN(splitted[0], "://", 2)[1]
+	}
+	return
+}
+
+// Helper. Parse config of
+func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources []string) {
+	for _, source := range sources {
+		uri, name := splitName(source)
+		*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
+	}
+}
+
+// Helper. Get remote list of streams.
+func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri string) {
+	client := NewTimeoutClient(5*time.Second, 5*time.Second)
+	req, err := http.NewRequest("GET", uri, nil)
+	if err != nil {
+		return
+	}
+	result, err := client.Do(req)
+	if err == nil {
+		body := bufio.NewReader(result.Body)
+		for {
+			line, err := body.ReadString('\n')
+			if err != nil {
+				break
+			}
+			uri, name := splitName(line)
+			*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
+		}
+	}
 }

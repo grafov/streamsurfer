@@ -46,7 +46,8 @@ func main() {
 	cfg := ReadConfig(*confname)
 
 	go LogKeeper(cfg)
-	go StatsKeeper(cfg)
+	go StatKeeper(cfg)
+	go ReportKeeper(cfg)
 	go StreamMonitor(cfg)
 	go HttpAPI(cfg)
 

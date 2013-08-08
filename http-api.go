@@ -15,7 +15,10 @@ const (
 // Elder.
 func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()
-	r.HandleFunc("/", rootAPIHandler)
+	r.HandleFunc("/", rootAPI)
+	r.HandleFunc("/rprt", rprtGroupAll).Methods("GET")
+	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
+	r.HandleFunc("/rprt/g/{group}/errors", rprtGroupErrors).Methods("GET")
 	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.Params.ListenHTTP,
@@ -25,7 +28,23 @@ func HttpAPI(cfg *Config) {
 	srv.ListenAndServe()
 }
 
-func rootAPIHandler(res http.ResponseWriter, req *http.Request) {
+func rootAPI(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
 	res.Write([]byte("HLS Probe at service."))
+}
+
+func rprtGroupAll(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write([]byte("Сводный отчёт по группам."))
+}
+
+func rprtGroup(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write([]byte("HLS Probe at service."))
+}
+
+// Group errors report
+func rprtGroupErrors(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(ReportGroupErrors(mux.Vars(req)))
 }

@@ -33,11 +33,24 @@ const (
 type StreamType uint // Type of checked streams
 type ErrType uint
 
+type Stream struct {
+	URI   string
+	Type  StreamType
+	Name  string
+	Group string
+}
+
 // Stream checking task
 type Task struct {
-	URI  string
-	Type StreamType
-	//	Name    string
+	Stream
+	ReplyTo chan TaskResult
+}
+
+// Stream group
+type GroupTask struct {
+	Type    StreamType
+	Name    string
+	Tasks   *Task
 	ReplyTo chan TaskResult
 }
 
@@ -61,39 +74,43 @@ func StreamMonitor(cfg *Config) {
 	chunktasks := make(chan *Task, 1024) // TODO тут не задачи, другой тип
 
 	go HealthCheck(sampletasks)
-	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
-		go SimpleProber(cfg, httptasks)
-	}
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
 		go CupertinoProber(cfg, hlstasks)
 	}
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
 		go MediaProber(cfg, chunktasks)
 	}
-	for _, stream := range cfg.StreamsHTTP {
-		go Stream(cfg, stream, HTTP, httptasks)
+	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
+		go SimpleProber(cfg, httptasks)
 	}
 	for _, stream := range cfg.StreamsHLS {
-		go Stream(cfg, stream, HLS, hlstasks)
+		go StreamBox(cfg, stream, HLS, hlstasks)
 	}
+	for _, stream := range cfg.StreamsHTTP {
+		go GroupBox(cfg, stream, HTTP, httptasks)
+	}
+}
 
+func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
 }
 
 // Container for keeping info about each stream checks
-func Stream(cfg *Config, uri string, streamType StreamType, taskq chan *Task) {
-	task := &Task{URI: uri, Type: streamType, ReplyTo: make(chan TaskResult)}
+func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
+	task := &Task{Stream: stream, ReplyTo: make(chan TaskResult)}
+	//go Report(stream, nil)
 	for {
 		taskq <- task
 		result := <-task.ReplyTo
-		//fmt.Printf("%v %s\n", result, uri)
+		go Report(stream, &result)
 		if result.Type != SUCCESS {
-			go Log("Error", *task, result)
+			go Log(ERROR, stream, result)
+			time.Sleep(3 * time.Second) // TODO config
 		} else {
 			if result.Elapsed >= cfg.Params.WarningTimeout*time.Second {
-				go Log("Warn", *task, result)
+				go Log(WARNING, stream, result)
 			}
+			time.Sleep(12 * time.Second) // TODO config
 		}
-		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -192,7 +209,6 @@ func verifyHLS(cfg *Config, task *Task, response *http.Response, result *TaskRes
 		switch listType {
 		case m3u8.MASTER:
 			m := playlist.(*m3u8.MasterPlaylist)
-			fmt.Printf("%+v", m.Variants[0])
 			fmt.Println(m.Encode().String())
 		case m3u8.MEDIA:
 			p := playlist.(*m3u8.MediaPlaylist)
