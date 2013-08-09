@@ -17,8 +17,10 @@ func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()
 	r.HandleFunc("/", rootAPI)
 	r.HandleFunc("/rprt", rprtGroupAll).Methods("GET")
+	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
-	r.HandleFunc("/rprt/g/{group}/errors", rprtGroupErrors).Methods("GET")
+	r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
+	r.Handle("/css/bootstrap.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.Params.ListenHTTP,
@@ -44,7 +46,13 @@ func rprtGroup(res http.ResponseWriter, req *http.Request) {
 }
 
 // Group errors report
-func rprtGroupErrors(res http.ResponseWriter, req *http.Request) {
+func rprtGroupLast(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
-	res.Write(ReportGroupErrors(mux.Vars(req)))
+	res.Write(ReportLast(mux.Vars(req)))
+}
+
+// Group errors report
+func rprtLast(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(ReportLast(mux.Vars(req)))
 }

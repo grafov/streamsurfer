@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/grafov/m3u8"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -60,6 +61,8 @@ type TaskResult struct {
 	HTTPCode      int    // HTTP status code
 	HTTPStatus    string // HTTP status string
 	ContentLength int64
+	Headers       http.Header
+	Body          io.ReadCloser
 	Started       time.Time
 	Elapsed       time.Duration
 }
@@ -77,18 +80,24 @@ func StreamMonitor(cfg *Config) {
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
 		go CupertinoProber(cfg, hlstasks)
 	}
-	for i = 0; i < cfg.Params.ProbersHLS; i++ {
+	fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
+	for i = 0; i < cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP; i++ {
 		go MediaProber(cfg, chunktasks)
 	}
+	fmt.Printf("%d media probers started.\n", cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP)
 	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
 		go SimpleProber(cfg, httptasks)
 	}
+	fmt.Printf("%d HTTP monitors started.\n", cfg.Params.ProbersHTTP)
 	for _, stream := range cfg.StreamsHLS {
 		go StreamBox(cfg, stream, HLS, hlstasks)
 	}
-	for _, stream := range cfg.StreamsHTTP {
-		go GroupBox(cfg, stream, HTTP, httptasks)
-	}
+	fmt.Printf("%d HLS monitors started.\n", len(cfg.StreamsHLS))
+	/*	for _, stream := range cfg.StreamsHTTP {
+			go GroupBox(cfg, stream, HTTP, httptasks)
+		}
+		fmt.Printf("%d HTTP monitors started.\n", len(cfg.StreamsHTTP))
+	*/
 }
 
 func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
@@ -97,14 +106,14 @@ func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Tas
 // Container for keeping info about each stream checks
 func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
 	task := &Task{Stream: stream, ReplyTo: make(chan TaskResult)}
-	//go Report(stream, nil)
+	go Report(stream, &TaskResult{})
 	for {
 		taskq <- task
 		result := <-task.ReplyTo
 		go Report(stream, &result)
 		if result.Type != SUCCESS {
 			go Log(ERROR, stream, result)
-			time.Sleep(3 * time.Second) // TODO config
+			time.Sleep(1 * time.Second) // TODO config
 		} else {
 			if result.Elapsed >= cfg.Params.WarningTimeout*time.Second {
 				go Log(WARNING, stream, result)
@@ -124,7 +133,7 @@ func HealthCheck(taskq chan *Task) {
 func SimpleProber(cfg *Config, tasks chan *Task) {
 	for {
 		task := <-tasks
-		_, result := doTask(cfg, task)
+		result := doTask(cfg, task)
 		task.ReplyTo <- *result
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
@@ -135,9 +144,9 @@ func SimpleProber(cfg *Config, tasks chan *Task) {
 func CupertinoProber(cfg *Config, tasks chan *Task) {
 	for {
 		task := <-tasks
-		response, result := doTask(cfg, task)
+		result := doTask(cfg, task)
 		if result.Type != CTIMEOUT {
-			verifyHLS(cfg, task, response, result)
+			verifyHLS(cfg, task, result)
 			// вернуть variants и по ним передать задачи в канал CupertinoProber
 		}
 		task.ReplyTo <- *result
@@ -157,14 +166,14 @@ func MediaProber(cfg *Config, taskq chan *Task) {
 }
 
 // Helper. Execute stream check task and return result with check status.
-func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
+func doTask(cfg *Config, task *Task) *TaskResult {
 	result := &TaskResult{Started: time.Now(), Elapsed: 0 * time.Second}
 	if !strings.HasPrefix(task.URI, "http://") && !strings.HasPrefix(task.URI, "https://") {
 		result.Type = BADURI
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
-		return nil, result
+		return result
 	}
 	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
 	req, err := http.NewRequest("GET", task.URI, nil) // TODO в конфиге выбирать метод проверки
@@ -173,7 +182,7 @@ func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
-		return nil, result
+		return result
 	}
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
@@ -182,7 +191,7 @@ func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
-		return nil, result
+		return result
 	}
 	result.HTTPCode = resp.StatusCode
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
@@ -190,29 +199,31 @@ func doTask(cfg *Config, task *Task) (*http.Response, *TaskResult) {
 	}
 	result.HTTPStatus = resp.Status
 	result.ContentLength = resp.ContentLength
-	return resp, result
+	result.Headers = resp.Header
+	result.Body = resp.Body // TODO read?
+	return result
 }
 
 // Helper. Verify HLS specific things.
-func verifyHLS(cfg *Config, task *Task, response *http.Response, result *TaskResult) {
+func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("trace dumped:", r)
+			//fmt.Println("trace dumped:", r)
 			result.Type = RTIMEOUT
 		}
 	}()
 
-	playlist, listType, err := m3u8.Decode(bufio.NewReader(response.Body), false)
+	playlist, listType, err := m3u8.Decode(bufio.NewReader(result.Body), false)
 	if err != nil {
 		result.Type = BADFORMAT
 	} else {
 		switch listType {
 		case m3u8.MASTER:
 			m := playlist.(*m3u8.MasterPlaylist)
-			fmt.Println(m.Encode().String())
+			m.Encode().String()
 		case m3u8.MEDIA:
 			p := playlist.(*m3u8.MediaPlaylist)
-			fmt.Println(p.Encode().String())
+			p.Encode().String()
 		default:
 			result.Type = BADFORMAT
 		}
@@ -233,7 +244,7 @@ func StreamErrText(err ErrType) string {
 	case BADFORMAT: // HLS specific
 		return "bad format"
 	case RTIMEOUT:
-		return "on read timeout"
+		return "timeout on read"
 	case CTIMEOUT:
 		return "connection timeout"
 	case HLSPARSER:

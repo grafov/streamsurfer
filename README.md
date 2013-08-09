@@ -36,6 +36,7 @@ Then:
 
 		go get github.com/grafov/m3u8
 		go get github.com/gorilla/mux
+		go get github.com/hoisie/mustache
 		git clone https://github.com/grafov/hlsprobe2
 		cd hlsprobe2
 		sudo make install
