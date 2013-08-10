@@ -1,4 +1,4 @@
-// Everything logging
+// Everything loggingp
 package main
 
 import (
@@ -57,7 +57,7 @@ func LogKeeper(cfg *Config) {
 					logw.WriteString("error")
 				}
 				logw.WriteString(": ")
-				logw.WriteString(StreamErrText(msg.TaskResult.Type))
+				logw.WriteString(StreamErrText(msg.TaskResult.ErrType))
 				logw.WriteRune(' ')
 				logw.WriteString(strconv.Itoa(msg.HTTPCode))
 				logw.WriteRune(' ')
@@ -66,7 +66,7 @@ func LogKeeper(cfg *Config) {
 				logw.WriteString(msg.Elapsed.String())
 				logw.WriteRune(' ')
 				logw.WriteString(msg.Group)
-				logw.WriteRune(' ')
+				logw.WriteString(": ")
 				logw.WriteString(msg.Name)
 				logw.WriteRune('\n')
 			}

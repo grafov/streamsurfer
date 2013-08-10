@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-const (
-	SERVER = "HLS Probe II"
-)
-
 // Elder.
 func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()

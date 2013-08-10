@@ -5,42 +5,12 @@ import (
 	//	"fmt"
 	"github.com/hoisie/mustache"
 	"strconv"
-	"sync"
 	"time"
 )
-
-type StreamState struct {
-	Stream Stream
-	Result TaskResult
-}
 
 type ReportData struct {
 	Vars      map[string]string
 	TableData []map[string]string // array of table rows
-}
-
-var reports chan StreamState
-var ReportedStreams = struct {
-	sync.RWMutex
-	data map[string]map[string]StreamState
-}{data: make(map[string]map[string]StreamState)}
-
-func ReportKeeper(cfg *Config) {
-	reports = make(chan StreamState, 1024)
-	for {
-		state := <-reports
-		ReportedStreams.Lock()
-		if _, err := ReportedStreams.data[state.Stream.Group]; !err {
-			ReportedStreams.data[state.Stream.Group] = make(map[string]StreamState)
-		}
-		ReportedStreams.data[state.Stream.Group][state.Stream.Name] = state
-		ReportedStreams.Unlock()
-	}
-}
-
-// Wrapper to send report to ReportKeeper
-func Report(stream Stream, result *TaskResult) {
-	reports <- StreamState{Stream: stream, Result: *result}
 }
 
 func ReportLast(vars map[string]string) []byte {
@@ -68,26 +38,25 @@ func ReportLast(vars map[string]string) []byte {
 }
 
 // Helper.
-func rprtAddRow(values *[]map[string]string, value StreamState) {
-	var severity, error string
+func rprtAddRow(values *[]map[string]string, value StreamStats) {
+	var severity string
 
-	if value.Result.Type > SUCCESS || value.Result.Elapsed >= 10*time.Second {
-		if value.Result.Type == SUCCESS {
+	if value.Last.ErrType > SUCCESS || value.Last.Elapsed >= 10*time.Second {
+		switch value.Last.ErrType {
+		case SUCCESS, SLOW, VERYSLOW:
 			severity = "warning"
-			error = "timeout"
-		} else {
+		default:
 			severity = "error"
-			error = StreamErrText(value.Result.Type)
 		}
 		*values = append(*values, map[string]string{
 			"uri":           value.Stream.URI,
 			"name":          value.Stream.Name,
 			"group":         value.Stream.Group,
-			"status":        value.Result.HTTPStatus,
-			"contentlength": strconv.FormatInt(value.Result.ContentLength, 10),
-			"started":       value.Result.Started.Format(TimeFormat),
-			"elapsed":       value.Result.Elapsed.String(),
-			"error":         error,
+			"status":        value.Last.HTTPStatus,
+			"contentlength": strconv.FormatInt(value.Last.ContentLength, 10),
+			"started":       value.Last.Started.Format(TimeFormat),
+			"elapsed":       value.Last.Elapsed.String(),
+			"error":         StreamErrText(value.Last.ErrType),
 			"severity":      severity,
 		})
 	}

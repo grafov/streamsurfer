@@ -4,68 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/grafov/m3u8"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 )
-
-// Kinds of streams
-const (
-	SAMPLE StreamType = iota // internet resources for monitor self checks
-	HTTP                     //
-	HLS
-)
-
-// Error codes (ordered by errors importance).
-// If several errors detected then only one with the heaviest weight reported.
-const (
-	SUCCESS ErrType = iota
-	BADSTATUS
-	BADURI
-	LISTEMPTY // HLS specific
-	BADFORMAT // HLS specific
-	RTIMEOUT  // on read
-	CTIMEOUT  // on connect
-	HLSPARSER // HLS parser error (debug)
-	UNKNOWN
-)
-
-type StreamType uint // Type of checked streams
-type ErrType uint
-
-type Stream struct {
-	URI   string
-	Type  StreamType
-	Name  string
-	Group string
-}
-
-// Stream checking task
-type Task struct {
-	Stream
-	ReplyTo chan TaskResult
-}
-
-// Stream group
-type GroupTask struct {
-	Type    StreamType
-	Name    string
-	Tasks   *Task
-	ReplyTo chan TaskResult
-}
-
-// Stream checking result
-type TaskResult struct {
-	Type          ErrType
-	HTTPCode      int    // HTTP status code
-	HTTPStatus    string // HTTP status string
-	ContentLength int64
-	Headers       http.Header
-	Body          io.ReadCloser
-	Started       time.Time
-	Elapsed       time.Duration
-}
 
 // Control monitoring of a single stream
 func StreamMonitor(cfg *Config) {
@@ -111,11 +53,15 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 		taskq <- task
 		result := <-task.ReplyTo
 		go Report(stream, &result)
-		if result.Type != SUCCESS {
+		if result.ErrType != SUCCESS {
 			go Log(ERROR, stream, result)
 			time.Sleep(1 * time.Second) // TODO config
 		} else {
-			if result.Elapsed >= cfg.Params.WarningTimeout*time.Second {
+			if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
+				result.ErrType = VERYSLOW
+				go Log(WARNING, stream, result)
+			} else if result.Elapsed >= cfg.Params.SlowWarningTimeout*time.Second {
+				result.ErrType = SLOW
 				go Log(WARNING, stream, result)
 			}
 			time.Sleep(12 * time.Second) // TODO config
@@ -145,14 +91,13 @@ func CupertinoProber(cfg *Config, tasks chan *Task) {
 	for {
 		task := <-tasks
 		result := doTask(cfg, task)
-		if result.Type != CTIMEOUT {
+		if result.ErrType != CTIMEOUT && result.HTTPCode < 400 {
 			verifyHLS(cfg, task, result)
 			// вернуть variants и по ним передать задачи в канал CupertinoProber
 		}
 		task.ReplyTo <- *result
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
-
 }
 
 // Parse and probe media chunk
@@ -169,7 +114,7 @@ func MediaProber(cfg *Config, taskq chan *Task) {
 func doTask(cfg *Config, task *Task) *TaskResult {
 	result := &TaskResult{Started: time.Now(), Elapsed: 0 * time.Second}
 	if !strings.HasPrefix(task.URI, "http://") && !strings.HasPrefix(task.URI, "https://") {
-		result.Type = BADURI
+		result.ErrType = BADURI
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
@@ -178,7 +123,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
 	req, err := http.NewRequest("GET", task.URI, nil) // TODO в конфиге выбирать метод проверки
 	if err != nil {
-		result.Type = BADURI
+		result.ErrType = BADURI
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
@@ -187,7 +132,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
-		result.Type = UNKNOWN
+		result.ErrType = UNKNOWN
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
@@ -195,7 +140,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	}
 	result.HTTPCode = resp.StatusCode
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		result.Type = BADSTATUS
+		result.ErrType = BADSTATUS
 	}
 	result.HTTPStatus = resp.Status
 	result.ContentLength = resp.ContentLength
@@ -209,13 +154,13 @@ func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
 	defer func() {
 		if r := recover(); r != nil {
 			//fmt.Println("trace dumped:", r)
-			result.Type = RTIMEOUT
+			result.ErrType = RTIMEOUT
 		}
 	}()
 
 	playlist, listType, err := m3u8.Decode(bufio.NewReader(result.Body), false)
 	if err != nil {
-		result.Type = BADFORMAT
+		result.ErrType = BADFORMAT
 	} else {
 		switch listType {
 		case m3u8.MASTER:
@@ -225,7 +170,7 @@ func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
 			p := playlist.(*m3u8.MediaPlaylist)
 			p.Encode().String()
 		default:
-			result.Type = BADFORMAT
+			result.ErrType = BADFORMAT
 		}
 	}
 }
@@ -235,6 +180,10 @@ func StreamErrText(err ErrType) string {
 	switch err {
 	case SUCCESS:
 		return "success"
+	case SLOW:
+		return "slow response"
+	case VERYSLOW:
+		return "very slow response"
 	case BADSTATUS:
 		return "bad status"
 	case BADURI:

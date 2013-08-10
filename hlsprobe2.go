@@ -47,7 +47,6 @@ func main() {
 
 	go LogKeeper(cfg)
 	go StatKeeper(cfg)
-	go ReportKeeper(cfg)
 	go StreamMonitor(cfg)
 	go HttpAPI(cfg)
 

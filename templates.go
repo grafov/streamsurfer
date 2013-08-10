@@ -16,7 +16,7 @@ const ReportLastTemplate = `<!DOCTYPE html>
             <th>Group</th>
             <th>Name</th>
             <th>Status</th>
-            <th>Content Length</th>
+            <th>Length</th>
             <th>Request Duration</th>
             <th>Last Checked</th>
             <th>Error</th>
@@ -55,7 +55,7 @@ const ReportGroupLastTemplate = `<!DOCTYPE html>
           <tr>
             <th>Name</th>
             <th>Status</th>
-            <th>Content Length</th>
+            <th>Length</th>
             <th>Request Duration</th>
             <th>Last Checked</th>
             <th>Error</th>

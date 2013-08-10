@@ -3,7 +3,7 @@ package main
 
 import (
 	"bufio"
-	//	"fmt"
+	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"net/http"
@@ -17,7 +17,6 @@ type Config struct {
 	StreamsHTTP []Stream
 	Samples     []string
 	Params      Params
-	Options     Options
 }
 
 // Internal config structure parsed from YAML
@@ -28,29 +27,21 @@ type config struct {
 	GetStreamsHTTP []string            `yaml:"get-http-streams"` // ссылка на внешний список потоков HTTP
 	Samples        []string            `yaml:"samples"`
 	Params         Params              `yaml:"params"`
-	Options        Options             `yaml:"options"`
 }
 
 type Params struct {
-	ProbersHTTP      uint          `yaml:"http-probers"`
-	ProbersHLS       uint          `yaml:"hls-probers"`
-	MediaProbers     uint          `yaml:"media-probers"`
-	ConnectTimeout   time.Duration `yaml:"connect-timeout"`
-	RWTimeout        time.Duration `yaml:"rw-timeout"`         // sec
-	WarningTimeout   time.Duration `yaml:"warning-timeout"`    // sec
-	TimeBetweenTasks time.Duration `yaml:"time-between-tasks"` // ms
-	ListenHTTP       string        `yaml:"http-api-listen"`
-	ErrorLog         string        `yaml:"error-log"`
+	ProbersHTTP            uint          `yaml:"http-probers"`
+	ProbersHLS             uint          `yaml:"hls-probers"`
+	MediaProbers           uint          `yaml:"media-probers"`
+	ConnectTimeout         time.Duration `yaml:"connect-timeout"`
+	RWTimeout              time.Duration `yaml:"rw-timeout"`                // sec
+	SlowWarningTimeout     time.Duration `yaml:"slow-warning-timeout"`      // sec
+	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout"` // sec
+	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks"`        // ms
+	TryOneSegment          bool          `yaml:"one-segment"`
+	ListenHTTP             string        `yaml:"http-api-listen"`
+	ErrorLog               string        `yaml:"error-log"`
 }
-
-type Options struct {
-	TryOneSegment bool `yaml:"one-segment"`
-}
-
-// Parse config and run stream monitors
-// func SourceLoader(confile string) {
-//	ReadConfig(confile)
-//}
 
 func ReadConfig(confile string) (Cfg *Config) {
 	var cfg = &config{}
@@ -67,7 +58,6 @@ func ReadConfig(confile string) (Cfg *Config) {
 			print("Config file parsing failed. Hardcoded defaults used.\n")
 		}
 		Cfg.Params = cfg.Params
-		Cfg.Options = cfg.Options
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 		}
@@ -77,13 +67,19 @@ func ReadConfig(confile string) (Cfg *Config) {
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
 				groupURI, groupName := splitName(source)
-				addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI)
+				err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI)
+				if err != nil {
+					fmt.Printf("Load remote config for group %s (HLS streams) failed.\n", groupName)
+				}
 			}
 		}
 		if cfg.GetStreamsHTTP != nil {
 			for _, source := range cfg.GetStreamsHTTP {
 				groupURI, groupName := splitName(source)
-				addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI)
+				err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI)
+				if err != nil {
+					fmt.Printf("Load remote config for group %s (HTTP streams) failed.\n", groupName)
+				}
 			}
 		}
 	} else {
@@ -94,12 +90,12 @@ func ReadConfig(confile string) (Cfg *Config) {
 
 // Helper. Split stream link to URI and Name parts.
 func splitName(source string) (uri string, name string) {
-	splitted := strings.SplitN(source, " ", 2)
+	splitted := strings.SplitN(strings.TrimSpace(source), " ", 2)
 	uri = splitted[0]
 	if len(splitted) > 1 && splitted[1] != "" {
-		name = splitted[1]
+		name = strings.TrimSpace(splitted[1])
 	} else {
-		name = strings.SplitN(splitted[0], "://", 2)[1]
+		name = strings.SplitN(strings.TrimSpace(splitted[0]), "://", 2)[1]
 	}
 	return
 }
@@ -113,11 +109,11 @@ func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources
 }
 
 // Helper. Get remote list of streams.
-func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri string) {
-	client := NewTimeoutClient(5*time.Second, 5*time.Second)
+func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri string) error {
+	client := NewTimeoutClient(20*time.Second, 20*time.Second)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
-		return
+		return err
 	}
 	result, err := client.Do(req)
 	if err == nil {
@@ -131,4 +127,5 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri string) {
 			*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
 		}
 	}
+	return err
 }
