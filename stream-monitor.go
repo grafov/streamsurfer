@@ -59,14 +59,14 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 		result := <-task.ReplyTo
 		curhour := result.Started.Format("06010215")
 		prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
-		errhistory[ErrHistoryKey{curhour, result.ErrType, "", ""}]++
-		errtotals[ErrTotalHistoryKey{curhour, "", ""}]++
-		if errtotals[ErrTotalHistoryKey{curhour, "", ""}] > 6 || errtotals[ErrTotalHistoryKey{prevhour, "", ""}] > 6 {
+		errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
+		errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
+		if errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6 || errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6 {
 			addSleepToBrokenStream = 2 * time.Minute
 		} else {
 			addSleepToBrokenStream = 0
 		}
-		result.TotalErrs = errtotals[ErrTotalHistoryKey{curhour, "", ""}]
+		result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
 		go Report(stream, &result)
 		if result.ErrType != SUCCESS {
 			go Log(ERROR, stream, result)

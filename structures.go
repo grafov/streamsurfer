@@ -74,7 +74,6 @@ type TaskResult struct {
 type StreamStats struct {
 	Stream Stream
 	Last   TaskResult
-	//	ErrCount map[ErrType]map[time.Time]uint // error log
 }
 
 type ErrHistoryKey struct {
@@ -82,6 +81,7 @@ type ErrHistoryKey struct {
 	ErrType ErrType
 	Group   string
 	Name    string
+	URI     string
 }
 
 type ErrTotalHistoryKey struct {

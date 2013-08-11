@@ -57,7 +57,7 @@ func StatKeeper(cfg *Config) {
 			if state.Last.ErrType != SUCCESS {
 				ErrHistory.Lock()
 				curhour := state.Last.Started.Format("06010215")
-				ErrHistory.count[ErrHistoryKey{curhour, state.Last.ErrType, state.Stream.Group, state.Stream.Name}]++
+				ErrHistory.count[ErrHistoryKey{curhour, state.Last.ErrType, state.Stream.Group, state.Stream.Name, state.Stream.URI}]++
 				ErrHistory.Unlock()
 				ErrTotalHistory.Lock()
 				ErrTotalHistory.count[ErrTotalHistoryKey{curhour, state.Stream.Group, state.Stream.Name}]++

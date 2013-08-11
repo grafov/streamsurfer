@@ -12,7 +12,8 @@ import (
 func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()
 	r.HandleFunc("/", rootAPI)
-	r.HandleFunc("/rprt", rprtGroupAll).Methods("GET")
+	r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
+	r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
 	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
@@ -31,6 +32,11 @@ func rootAPI(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte("HLS Probe at service."))
 }
 
+func rprtMainPage(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(ReportMainPage())
+}
+
 func rprtGroupAll(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
 	res.Write([]byte("Сводный отчёт по группам."))
@@ -45,6 +51,12 @@ func rprtGroup(res http.ResponseWriter, req *http.Request) {
 func rprtGroupLast(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
 	res.Write(ReportLast(mux.Vars(req)))
+}
+
+// Group errors report
+func rprt3Hours(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(Report3Hours(mux.Vars(req)))
 }
 
 // Group errors report
