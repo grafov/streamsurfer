@@ -20,6 +20,7 @@ const ReportLastTemplate = `<!DOCTYPE html>
             <th>Request Duration</th>
             <th>Last Checked</th>
             <th>Error</th>
+            <th>Last Hour</th>
           </tr>
         </thead>
         <tbody>
@@ -32,6 +33,7 @@ const ReportLastTemplate = `<!DOCTYPE html>
             <td>{{elapsed}}</td>
             <td>{{started}}</td>
             <td>{{error}}</td>
+            <td>{{totalerrs}}</td>
           </tr>
         {{/TableData}}
         </tbody>
@@ -59,17 +61,19 @@ const ReportGroupLastTemplate = `<!DOCTYPE html>
             <th>Request Duration</th>
             <th>Last Checked</th>
             <th>Error</th>
+            <th>Last Hour</th>
           </tr>
         </thead>
         <tbody>
         {{#TableData}}
           <tr class="{{severity}}">
             <td><a href="{{uri}}">{{name}}</a></td>
-            <td>{{status}}</td>
+            <td>{{status}}</td
             <td>{{contentlength}}</td>
             <td>{{elapsed}}</td>
             <td>{{started}}</td>
             <td>{{error}}</td>
+            <td>{{totalerrs}}</td>
           </tr>
         {{/TableData}}
         </tbody>

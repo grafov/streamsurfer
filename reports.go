@@ -57,6 +57,7 @@ func rprtAddRow(values *[]map[string]string, value StreamStats) {
 			"started":       value.Last.Started.Format(TimeFormat),
 			"elapsed":       value.Last.Elapsed.String(),
 			"error":         StreamErrText(value.Last.ErrType),
+			"totalerrs":     strconv.FormatUint(uint64(value.Last.TotalErrs), 10),
 			"severity":      severity,
 		})
 	}

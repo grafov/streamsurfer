@@ -68,10 +68,24 @@ type TaskResult struct {
 	Body          io.ReadCloser
 	Started       time.Time
 	Elapsed       time.Duration
+	TotalErrs     uint
 }
 
 type StreamStats struct {
-	Stream   Stream
-	Last     TaskResult
-	ErrCount map[ErrType]map[time.Time]uint // error log
+	Stream Stream
+	Last   TaskResult
+	//	ErrCount map[ErrType]map[time.Time]uint // error log
+}
+
+type ErrHistoryKey struct {
+	Curhour string
+	ErrType ErrType
+	Group   string
+	Name    string
+}
+
+type ErrTotalHistoryKey struct {
+	Curhour string
+	Group   string
+	Name    string
 }

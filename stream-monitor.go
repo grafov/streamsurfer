@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/grafov/m3u8"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -14,9 +15,9 @@ func StreamMonitor(cfg *Config) {
 	var i uint
 
 	sampletasks := make(chan *Task, 2)
-	httptasks := make(chan *Task, 1024)
-	hlstasks := make(chan *Task, 1024)
-	chunktasks := make(chan *Task, 1024) // TODO тут не задачи, другой тип
+	httptasks := make(chan *Task, len(cfg.StreamsHTTP)*4)
+	hlstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
+	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
 
 	go HealthCheck(sampletasks)
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
@@ -45,17 +46,31 @@ func StreamMonitor(cfg *Config) {
 func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
 }
 
-// Container for keeping info about each stream checks
+// Container incapsulates data and logic about single stream checks.
 func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
+	var addSleepToBrokenStream time.Duration
+
 	task := &Task{Stream: stream, ReplyTo: make(chan TaskResult)}
+	errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
+	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
 	go Report(stream, &TaskResult{})
 	for {
 		taskq <- task
 		result := <-task.ReplyTo
+		curhour := result.Started.Format("06010215")
+		prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
+		errhistory[ErrHistoryKey{curhour, result.ErrType, "", ""}]++
+		errtotals[ErrTotalHistoryKey{curhour, "", ""}]++
+		if errtotals[ErrTotalHistoryKey{curhour, "", ""}] > 6 || errtotals[ErrTotalHistoryKey{prevhour, "", ""}] > 6 {
+			addSleepToBrokenStream = 2 * time.Minute
+		} else {
+			addSleepToBrokenStream = 0
+		}
+		result.TotalErrs = errtotals[ErrTotalHistoryKey{curhour, "", ""}]
 		go Report(stream, &result)
 		if result.ErrType != SUCCESS {
 			go Log(ERROR, stream, result)
-			time.Sleep(1 * time.Second) // TODO config
+			time.Sleep(time.Duration(rand.Intn(6)+1)*time.Second + addSleepToBrokenStream) // TODO config
 		} else {
 			if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
 				result.ErrType = VERYSLOW
@@ -64,7 +79,7 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 				result.ErrType = SLOW
 				go Log(WARNING, stream, result)
 			}
-			time.Sleep(12 * time.Second) // TODO config
+			time.Sleep(time.Duration(rand.Intn(20)+1)*time.Second + addSleepToBrokenStream) // TODO config
 		}
 	}
 }
