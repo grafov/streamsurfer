@@ -10,7 +10,7 @@ Features are:
  * check HTTP response statuses and webserver timeouts
  * response time statistics
  * webreports to represent collected statistics
- * integration with Zabbix monitoring software
+ * integration with Zabbix (http://zabbix.com) monitoring software
 
 **The code in alpha. Mostly works but not all complete.**
 
@@ -43,8 +43,9 @@ Then:
 	cd hlsprobe2
 	sudo make install
 
-The code includes Bootstrap library (under Apache License). It may be packaged with `hlsprobe`
-due GPLv3 license. To simplify installation Bootstrap code yet included in `hlsprobe` package.
+The code includes Bootstrap 2 (http://getbootstrap.com) library (under Apache License).
+It may be packaged with `hlsprobe` due GPLv3 license.
+To simplify installation Bootstrap code yet included in `hlsprobe` package.
 Later it will be splitted and Bootstrap will be downloaded separately.
 
 Usage
