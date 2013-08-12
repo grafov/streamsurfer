@@ -43,6 +43,9 @@ Then:
 	cd hlsprobe2
 	sudo make install
 
+The code includes Bootstrap library (under Apache License). It may be packaged with `hlsprobe`
+due GPLv3 license. To simplify installation Bootstrap code yet included in `hlsprobe` package.
+Later it will be splitted and Bootstrap will be downloaded separately.
 
 Usage
 -----
