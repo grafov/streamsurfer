@@ -17,7 +17,9 @@ func HttpAPI(cfg *Config) {
 	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
-	r.Handle("/css/bootstrap.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
+	r.HandleFunc("/zabbix", zabbixStatus).Methods("GET", "HEAD")
+	r.HandleFunc("/zabbix/g/{group}", zabbixStatus).Methods("GET")
+	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.Params.ListenHTTP,
@@ -63,4 +65,10 @@ func rprt3Hours(res http.ResponseWriter, req *http.Request) {
 func rprtLast(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
 	res.Write(ReportLast(mux.Vars(req)))
+}
+
+// Zabbix integration
+func zabbixStatus(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(ZabbixStatus(mux.Vars(req)))
 }

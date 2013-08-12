@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	VERSION = "2.1"
+	VERSION = "0.5"
 )
 
 /*
@@ -36,9 +36,7 @@ func main() {
 		}
 	}()
 
-	print("HLS Probe vers. ")
-	print(VERSION)
-	print("\n")
+	fmt.Printf("HLS Probe vers. %s\n", VERSION)
 	flag.Parse()
 
 	//cfgq := make(chan ConfigQuery, 12)
@@ -48,12 +46,13 @@ func main() {
 	go LogKeeper(cfg)
 	go StatKeeper(cfg)
 	go StreamMonitor(cfg)
+	go ZabbixDiscovery(cfg)
 	go HttpAPI(cfg)
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)
 	<-terminate
-	print("...probe service interrupted.\n")
+	fmt.Println("...probe service interrupted.")
 }
 
 // Top level problem analyzer

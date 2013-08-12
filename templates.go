@@ -8,6 +8,7 @@ const ReportMainPageTemplate =`<!DOCTYPE html>
 <title>HLS Probe II Reports</title>
 <meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
 <link href="/css/bootstrap.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
 </head>
 <body><h1>Reports are:</h1>
  <ul>
@@ -25,8 +26,9 @@ const Report3HoursTemplate = `<!DOCTYPE html>
 <title>Errors per 3 hours for all groups :: HLS Probe II</title>
 <meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
 <link href="/css/bootstrap.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
 </head>
-<body><h1>Last errors</h1>
+<body><h1>Errors per 3 hours for all groups</h1>
 <table class="table table-bordered table-condensed">
         <thead>
           <tr>
@@ -65,14 +67,13 @@ const Report3HoursTemplate = `<!DOCTYPE html>
           <tr>
             <td>{{group}}</td>
             <td><a href="{{uri}}">{{name}}</a></td>
-            <td>{{sw}}</td>
-            <td>{{bs}}</td>
-            <td>{{bu}}</td>
-            <td>{{le}}</td>
-            <td>{{rt}}</td>
-            <td>{{ct}}</td>
-            <td>{{hls}}</td>
-
+            <td{{#sw-severity}} class="{{sw-severity}}"{{/sw-severity}}>{{sw}}</td>
+            <td{{#bs-severity}} class="{{bs-severity}}"{{/bs-severity}}>{{bs}}</td>
+            <td{{#bu-severity}} class="{{bu-severity}}"{{/bu-severity}}>{{bu}}</td>
+            <td{{#le-severity}} class="{{le-severity}}"{{/le-severity}}>{{le}}</td>
+            <td{{#rt-severity}} class="{{rt-severity}}"{{/rt-severity}}>{{rt}}</td>
+            <td{{#ct-severity}} class="{{ct-severity}}"{{/ct-severity}}>{{ct}}</td>
+            <td{{#hls-severity}} class="{{hls-severity}}"{{/hls-severity}}>{{hls}}</td>
             <td>{{sw2}}</td>
             <td>{{bs2}}</td>
             <td>{{bs2}}</td>
@@ -80,7 +81,6 @@ const Report3HoursTemplate = `<!DOCTYPE html>
             <td>{{rt2}}</td>
             <td>{{ct2}}</td>
             <td>{{hls2}}</td>
-
             <td>{{sw3}}</td>
             <td>{{bs3}}</td>
             <td>{{bu3}}</td>
@@ -104,6 +104,7 @@ const ReportLastTemplate = `<!DOCTYPE html>
 <title>All groups last errors :: HLS Probe II</title>
 <meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
 <link href="/css/bootstrap.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
 </head>
 <body><h1>Last errors</h1>
 <table class="table table-bordered table-condensed">
@@ -146,6 +147,7 @@ const ReportGroupLastTemplate = `<!DOCTYPE html>
 <title>{{#Vars}}{{group}} :: {{/Vars}}HLS Probe II</title>
 <meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
 <link href="/css/bootstrap.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
 </head>
 <body>{{#Vars}}<h1>{{group}} last errors</h1>{{/Vars}}
 <table class="table table-bordered table-condensed">

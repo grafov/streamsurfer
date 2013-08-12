@@ -41,6 +41,8 @@ type Params struct {
 	TryOneSegment          bool          `yaml:"one-segment"`
 	ListenHTTP             string        `yaml:"http-api-listen"`
 	ErrorLog               string        `yaml:"error-log"`
+	ZabbixDiscoveryPath    string        `yaml:"zabbix-discovery-path,omitempty"`
+	ZabbixDiscoveryGroups  []string      `yaml:"zabbix-discovery-groups,omitempty"`
 }
 
 func ReadConfig(confile string) (Cfg *Config) {

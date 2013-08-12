@@ -2,7 +2,7 @@
 package main
 
 import (
-	//	"fmt"
+	"fmt"
 	"github.com/hoisie/mustache"
 	"strconv"
 	"time"
@@ -33,6 +33,7 @@ func Report3Hours(vars map[string]string) []byte {
 	tmptbl := make(map[string]map[string]map[string]string)
 
 	for key, val := range ErrHistory.count {
+		errtype := ""
 		s := strconv.FormatInt(int64(val), 10)
 		if key.Curhour == curhour {
 			if _, exists := tmptbl[key.Group]; !exists {
@@ -46,21 +47,32 @@ func Report3Hours(vars map[string]string) []byte {
 			tmptbl[key.Group][key.Name]["uri"] = key.URI
 			switch key.ErrType {
 			case SLOW, VERYSLOW:
-				tmptbl[key.Group][key.Name]["sw"] = s
+				errtype = "sw"
 			case BADSTATUS:
-				tmptbl[key.Group][key.Name]["bs"] = s
+				errtype = "bs"
 			case BADURI:
-				tmptbl[key.Group][key.Name]["bu"] = s
+				errtype = "bu"
 			case LISTEMPTY:
-				tmptbl[key.Group][key.Name]["le"] = s
+				errtype = "le"
 			case BADFORMAT:
-				tmptbl[key.Group][key.Name]["bf"] = s
+				errtype = "bf"
 			case RTIMEOUT:
-				tmptbl[key.Group][key.Name]["rt"] = s
+				errtype = "rt"
 			case CTIMEOUT:
-				tmptbl[key.Group][key.Name]["ct"] = s
+				errtype = "ct"
 			case HLSPARSER:
-				tmptbl[key.Group][key.Name]["hls"] = s
+				errtype = "hls"
+			}
+			tmptbl[key.Group][key.Name][errtype] = s
+			switch {
+			case val == 1:
+				tmptbl[key.Group][key.Name][fmt.Sprintf("%s-severity", errtype)] = "info"
+			case val > 1 && val <= 6:
+				tmptbl[key.Group][key.Name][fmt.Sprintf("%s-severity", errtype)] = "warning"
+			case val > 6:
+				tmptbl[key.Group][key.Name][fmt.Sprintf("%s-severity", errtype)] = "error"
+			default:
+				tmptbl[key.Group][key.Name][fmt.Sprintf("%s-severity", errtype)] = "success"
 			}
 		}
 	}

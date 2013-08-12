@@ -189,31 +189,3 @@ func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
 		}
 	}
 }
-
-// Text representation of stream error
-func StreamErrText(err ErrType) string {
-	switch err {
-	case SUCCESS:
-		return "success"
-	case SLOW:
-		return "slow response"
-	case VERYSLOW:
-		return "very slow response"
-	case BADSTATUS:
-		return "bad status"
-	case BADURI:
-		return "bad URI"
-	case LISTEMPTY: // HLS specific
-		return "list empty"
-	case BADFORMAT: // HLS specific
-		return "bad format"
-	case RTIMEOUT:
-		return "timeout on read"
-	case CTIMEOUT:
-		return "connection timeout"
-	case HLSPARSER:
-		return "HLS parser" // debug
-	default:
-		return "unknown"
-	}
-}

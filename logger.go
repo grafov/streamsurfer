@@ -31,17 +31,17 @@ func LogKeeper(cfg *Config) {
 
 	logq = make(chan LogMessage, 1024)
 	logf, skip := os.Create(cfg.Params.ErrorLog)
-	if skip != nil {
-		fmt.Printf("Can't create file for error log. Error logging to file skiped.")
-	} else {
+	if skip == nil {
 		logw = bufio.NewWriter(logf)
 		fmt.Printf("Error log: %s\n", cfg.Params.ErrorLog)
+	} else {
+		fmt.Printf("Can't create file for error log. Error logging to file skiped.")
 	}
-	timeout := make(chan bool, 1)
 
 	for {
+		timeout := make(chan bool, 1)
 		go func() {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			timeout <- true
 		}()
 
