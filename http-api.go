@@ -17,8 +17,10 @@ func HttpAPI(cfg *Config) {
 	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
-	r.HandleFunc("/zabbix", zabbixStatus).Methods("GET", "HEAD")
-	r.HandleFunc("/zabbix/g/{group}", zabbixStatus).Methods("GET")
+	r.HandleFunc("/zabbix", zabbixStatus).Methods("GET", "HEAD")                             // text report for all groups to Zabbix
+	r.HandleFunc("/zabbix/g/{group}", zabbixStatus).Methods("GET", "HEAD")                   // text report for selected group to Zabbix
+	r.HandleFunc("/zabbix/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD")           // discovery data for Zabbix for all groups
+	r.HandleFunc("/zabbix/g/{group}/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for selected group
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
 	srv := &http.Server{
@@ -71,4 +73,12 @@ func rprtLast(res http.ResponseWriter, req *http.Request) {
 func zabbixStatus(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
 	res.Write(ZabbixStatus(mux.Vars(req)))
+}
+
+// Zabbix integration (with cfg curried)
+func zabbixDiscovery(cfg *Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Server", SERVER)
+		res.Write(ZabbixDiscoveryWeb(cfg, mux.Vars(req)))
+	}
 }

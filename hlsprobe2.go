@@ -46,7 +46,7 @@ func main() {
 	go LogKeeper(cfg)
 	go StatKeeper(cfg)
 	go StreamMonitor(cfg)
-	go ZabbixDiscovery(cfg)
+	go ZabbixDiscoveryFile(cfg)
 	go HttpAPI(cfg)
 
 	terminate := make(chan os.Signal)

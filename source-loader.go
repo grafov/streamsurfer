@@ -21,19 +21,20 @@ type Config struct {
 
 // Internal config structure parsed from YAML
 type config struct {
-	StreamsHLS     map[string][]string `yaml:"hls-streams"`      // потоки для проверки HLS
-	StreamsHTTP    map[string][]string `yaml:"http-streams"`     // потоки для проверки только HTTP, без парсинга HLS
-	GetStreamsHLS  []string            `yaml:"get-hls-streams"`  // ссылка на внешний список потоков HLS
-	GetStreamsHTTP []string            `yaml:"get-http-streams"` // ссылка на внешний список потоков HTTP
+	StreamsHLS     map[string][]string `yaml:"hls-stream,omitempty"`       // HLS parsing
+	StreamsHTTP    map[string][]string `yaml:"http-streams,omitempty"`     // plain HTTP checks
+	GetStreamsHLS  []string            `yaml:"get-hls-streams,omitempty"`  // load remote HLS-checks configuration
+	GetStreamsHTTP []string            `yaml:"get-http-streams,omitempty"` // load remote HTTP-checks configuration
 	Samples        []string            `yaml:"samples"`
 	Params         Params              `yaml:"params"`
+	//	GroupParams    Params              `yaml:"group-params,omitempty"` // parameters per group
 }
 
 type Params struct {
-	ProbersHTTP            uint          `yaml:"http-probers"`
-	ProbersHLS             uint          `yaml:"hls-probers"`
-	MediaProbers           uint          `yaml:"media-probers"`
-	ConnectTimeout         time.Duration `yaml:"connect-timeout"`
+	ProbersHTTP            uint          `yaml:"http-probers"`              // num of
+	ProbersHLS             uint          `yaml:"hls-probers"`               // num of
+	MediaProbers           uint          `yaml:"media-probers"`             // num of
+	ConnectTimeout         time.Duration `yaml:"connect-timeout"`           // sec
 	RWTimeout              time.Duration `yaml:"rw-timeout"`                // sec
 	SlowWarningTimeout     time.Duration `yaml:"slow-warning-timeout"`      // sec
 	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout"` // sec
@@ -43,6 +44,8 @@ type Params struct {
 	ErrorLog               string        `yaml:"error-log"`
 	ZabbixDiscoveryPath    string        `yaml:"zabbix-discovery-path,omitempty"`
 	ZabbixDiscoveryGroups  []string      `yaml:"zabbix-discovery-groups,omitempty"`
+	//	User                   string        `yaml:"user,omitempty"`
+	//	Pass                   string        `yaml:"pass,omitempty"`
 }
 
 func ReadConfig(confile string) (Cfg *Config) {

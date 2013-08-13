@@ -39,27 +39,27 @@ const Report3HoursTemplate = `<!DOCTYPE html>
             <th colspan="7">Three hours ago</th>
           </tr>
           <tr>
-            <th>SW</th>
-            <th>BS</th>
-            <th>BU</th>
-            <th>LE</th>
-            <th>RT</th>
-            <th>CT</th>
-            <th>HLS</th>
-            <th>SW</th>
-            <th>BS</th>
-            <th>BU</th>
-            <th>LE</th>
-            <th>RT</th>
-            <th>CT</th>
-            <th>HLS</th>
-            <th>SW</th>
-            <th>BS</th>
-            <th>BU</th>
-            <th>LE</th>
-            <th>RT</th>
-            <th>CT</th>
-            <th>HLS</th>
+            <th rel="tooltip" title="Slow response">SR</th>
+            <th rel="tooltip" title="Bad status">BS</th>
+            <th rel="tooltip" title="Bad URI">BU</th>
+            <th rel="tooltip" title="List is empty">LE</th>
+            <th rel="tooltip" title="Timeout on read">RT</th>
+            <th rel="tooltip" title="Timeout on connect">CT</th>
+            <th rel="tooltip" title="HLS parsing problem">HLS</th>
+            <th rel="tooltip" title="Slow response">SR</th>
+            <th rel="tooltip" title="Bad status">BS</th>
+            <th rel="tooltip" title="Bad URI">BU</th>
+            <th rel="tooltip" title="List is empty">LE</th>
+            <th rel="tooltip" title="Timeout on read">RT</th>
+            <th rel="tooltip" title="Timeout on connect">CT</th>
+            <th rel="tooltip" title="HLS parsing problem">HLS</th>
+            <th rel="tooltip" title="Slow response">SR</th>
+            <th rel="tooltip" title="Bad status">BS</th>
+            <th rel="tooltip" title="Bad URI">BU</th>
+            <th rel="tooltip" title="List is empty">LE</th>
+            <th rel="tooltip" title="Timeout on read">RT</th>
+            <th rel="tooltip" title="Timeout on connect">CT</th>
+            <th rel="tooltip" title="HLS parsing problem">HLS</th>
           </tr>
         </thead>
         <tbody>
