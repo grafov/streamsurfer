@@ -42,10 +42,15 @@ type Params struct {
 	TryOneSegment          bool          `yaml:"one-segment"`
 	ListenHTTP             string        `yaml:"http-api-listen"`
 	ErrorLog               string        `yaml:"error-log"`
-	ZabbixDiscoveryPath    string        `yaml:"zabbix-discovery-path,omitempty"`
-	ZabbixDiscoveryGroups  []string      `yaml:"zabbix-discovery-groups,omitempty"`
+	Zabbix                 Zabbix        `yaml:"zabbix,omitempty"`
 	//	User                   string        `yaml:"user,omitempty"`
 	//	Pass                   string        `yaml:"pass,omitempty"`
+}
+
+type Zabbix struct {
+	DiscoveryPath   string   `yaml:"discovery-path,omitempty"`
+	DiscoveryGroups []string `yaml:"discovery-groups,omitempty"`
+	StreamTemplate  string   `yaml:"stream-template,omitempty"`
 }
 
 func ReadConfig(confile string) (Cfg *Config) {
