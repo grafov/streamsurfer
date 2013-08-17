@@ -24,27 +24,37 @@ func StreamMonitor(cfg *Config) {
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
 		go CupertinoProber(cfg, hlstasks)
 	}
-	fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
+	if cfg.Params.ProbersHLS > 0 {
+		fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
+	}
 
 	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
 		go SimpleProber(cfg, httptasks)
 	}
-	fmt.Printf("%d HTTP probers started.\n", cfg.Params.ProbersHTTP)
+	if cfg.Params.ProbersHTTP > 0 {
+		fmt.Printf("%d HTTP probers started.\n", cfg.Params.ProbersHTTP)
+	}
 
 	for i = 0; i < cfg.Params.MediaProbers; i++ {
 		go MediaProber(cfg, chunktasks)
 	}
-	fmt.Printf("%d media probers started.\n", cfg.Params.MediaProbers)
+	if cfg.Params.MediaProbers > 0 {
+		fmt.Printf("%d media probers started.\n", cfg.Params.MediaProbers)
+	}
 
 	for _, stream := range cfg.StreamsHLS {
 		go StreamBox(cfg, stream, HLS, hlstasks)
 	}
-	fmt.Printf("%d HLS monitors started.\n", len(cfg.StreamsHLS))
+	if len(cfg.StreamsHLS) > 0 {
+		fmt.Printf("%d HLS monitors started.\n", len(cfg.StreamsHLS))
+	}
 
 	for _, stream := range cfg.StreamsHTTP {
 		go StreamBox(cfg, stream, HTTP, httptasks)
 	}
-	fmt.Printf("%d HTTP monitors started.\n", len(cfg.StreamsHTTP))
+	if len(cfg.StreamsHTTP) > 0 {
+		fmt.Printf("%d HTTP monitors started.\n", len(cfg.StreamsHTTP))
+	}
 }
 
 func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {

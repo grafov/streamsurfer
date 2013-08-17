@@ -16,6 +16,8 @@ import (
 type Config struct {
 	StreamsHLS  []Stream
 	StreamsHTTP []Stream
+	GroupsHLS   map[string]string // map[group]group
+	GroupsHTTP  map[string]string // map[group]group
 	Samples     []string
 	Params      Params
 	GroupParams map[string]Params
@@ -71,13 +73,17 @@ func ReadConfig(confile string) (Cfg *Config) {
 		if e != nil {
 			print("Config file parsing failed. Hardcoded defaults used.\n")
 		}
+		Cfg.GroupsHLS = make(map[string]string)
+		Cfg.GroupsHTTP = make(map[string]string)
 		Cfg.Params = cfg.Params
 		Cfg.GroupParams = map[string]Params{}
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
+			Cfg.GroupsHLS[groupName] = groupName
 		}
 		for groupName, streamList := range cfg.StreamsHTTP {
 			addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
+			Cfg.GroupsHTTP[groupName] = groupName
 		}
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
@@ -90,7 +96,9 @@ func ReadConfig(confile string) (Cfg *Config) {
 				}
 				err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
-					fmt.Printf("Load remote config for group %s (HLS streams) failed.\n", groupName)
+					fmt.Printf("Load remote config for group \"%s\" (HLS) failed.\n", groupName)
+				} else {
+					Cfg.GroupsHLS[groupName] = groupName
 				}
 			}
 		}
@@ -105,7 +113,9 @@ func ReadConfig(confile string) (Cfg *Config) {
 				}
 				err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
-					fmt.Printf("Load remote config for group %s (HTTP streams) failed.\n", groupName)
+					fmt.Printf("Load remote config for group \"%s\" (HTTP) failed.\n", groupName)
+				} else {
+					Cfg.GroupsHTTP[groupName] = groupName
 				}
 			}
 		}
@@ -155,14 +165,10 @@ func ReadConfig(confile string) (Cfg *Config) {
 		print("Config file not found. Hardcoded defaults used.\n")
 	}
 	//	fmt.Printf("HLS: %+v\n\n", Cfg.StreamsHLS)
-	// fmt.Printf("HTTP: %+v\n\n", Cfg.StreamsHTTP)
+	//fmt.Printf("HTTP: %+v\n\n", Cfg.GroupsHTTP)
 
 	return
 }
-
-/*func GetGroupParam(group string, param method) {
-
-}*/
 
 // Helper. Split stream link to URI and Name parts.
 func splitName(source string) (uri string, name string) {
@@ -185,7 +191,7 @@ func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources
 }
 
 // Helper. Get remote list of streams.
-func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri, remoteUser, remotePass string) error {
+func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, remoteUser, remotePass string) error {
 	defer func() error {
 		if r := recover(); r != nil {
 			return errors.New(fmt.Sprintf("Can't get remote config for (%s) %s %s", streamType, group, uri))
