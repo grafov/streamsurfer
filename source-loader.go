@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
@@ -17,6 +18,7 @@ type Config struct {
 	StreamsHTTP []Stream
 	Samples     []string
 	Params      Params
+	GroupParams map[string]Params
 }
 
 // Internal config structure parsed from YAML
@@ -27,24 +29,26 @@ type config struct {
 	GetStreamsHTTP []string            `yaml:"get-http-streams,omitempty"` // load remote HTTP-checks configuration
 	Samples        []string            `yaml:"samples"`
 	Params         Params              `yaml:"params"`
-	//	GroupParams    Params              `yaml:"group-params,omitempty"` // parameters per group
+	GroupParams    map[string]Params   `yaml:"group-params,omitempty"` // parameters per group
 }
 
 type Params struct {
-	ProbersHTTP            uint          `yaml:"http-probers"`              // num of
-	ProbersHLS             uint          `yaml:"hls-probers"`               // num of
-	MediaProbers           uint          `yaml:"media-probers"`             // num of
-	ConnectTimeout         time.Duration `yaml:"connect-timeout"`           // sec
-	RWTimeout              time.Duration `yaml:"rw-timeout"`                // sec
-	SlowWarningTimeout     time.Duration `yaml:"slow-warning-timeout"`      // sec
-	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout"` // sec
-	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks"`        // ms
-	TryOneSegment          bool          `yaml:"one-segment"`
-	ListenHTTP             string        `yaml:"http-api-listen"`
-	ErrorLog               string        `yaml:"error-log"`
+	ProbersHTTP            uint          `yaml:"http-probers,omitempty"`              // num of
+	ProbersHLS             uint          `yaml:"hls-probers,omitempty"`               // num of
+	MediaProbers           uint          `yaml:"media-probers,omitempty"`             // num of
+	CheckRepeatTime        uint          `yaml:"check-repeat-time"`                   // ms
+	CheckBrokenTime        uint          `yaml:"check-broken-time"`                   // ms
+	ConnectTimeout         time.Duration `yaml:"connect-timeout,omitempty"`           // sec
+	RWTimeout              time.Duration `yaml:"rw-timeout,omitempty"`                // sec
+	SlowWarningTimeout     time.Duration `yaml:"slow-warning-timeout,omitempty"`      // sec
+	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout,omitempty"` // sec
+	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks,omitempty"`        // ms
+	TryOneSegment          bool          `yaml:"one-segment,omitempty"`
+	ListenHTTP             string        `yaml:"http-api-listen,omitempty"`
+	ErrorLog               string        `yaml:"error-log,omitempty"`
 	Zabbix                 Zabbix        `yaml:"zabbix,omitempty"`
-	//	User                   string        `yaml:"user,omitempty"`
-	//	Pass                   string        `yaml:"pass,omitempty"`
+	User                   string        `yaml:"user,omitempty"`
+	Pass                   string        `yaml:"pass,omitempty"`
 }
 
 type Zabbix struct {
@@ -68,6 +72,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 			print("Config file parsing failed. Hardcoded defaults used.\n")
 		}
 		Cfg.Params = cfg.Params
+		Cfg.GroupParams = map[string]Params{}
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 		}
@@ -77,7 +82,13 @@ func ReadConfig(confile string) (Cfg *Config) {
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
 				groupURI, groupName := splitName(source)
-				err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI)
+				remoteUser := ""
+				remotePass := ""
+				if _, exists := cfg.GroupParams[groupName]; exists {
+					remoteUser = "root"  //cfg.GroupParams[groupName].User
+					remotePass = "zveri" //cfg.GroupParams[groupName].Pass
+				}
+				err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
 					fmt.Printf("Load remote config for group %s (HLS streams) failed.\n", groupName)
 				}
@@ -86,17 +97,72 @@ func ReadConfig(confile string) (Cfg *Config) {
 		if cfg.GetStreamsHTTP != nil {
 			for _, source := range cfg.GetStreamsHTTP {
 				groupURI, groupName := splitName(source)
-				err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI)
+				remoteUser := ""
+				remotePass := ""
+				if _, exists := cfg.GroupParams[groupName]; exists {
+					remoteUser = "root"  //cfg.GroupParams[groupName].User
+					remotePass = "zveri" //cfg.GroupParams[groupName].Pass
+				}
+				err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
 					fmt.Printf("Load remote config for group %s (HTTP streams) failed.\n", groupName)
 				}
 			}
 		}
+		for group, groupParams := range cfg.GroupParams {
+			if groupParams.ProbersHLS == 0 {
+				groupParams.ProbersHLS = cfg.Params.ProbersHLS
+			}
+			if groupParams.ProbersHTTP == 0 {
+				groupParams.ProbersHTTP = cfg.Params.ProbersHTTP
+			}
+			if groupParams.MediaProbers == 0 {
+				groupParams.MediaProbers = cfg.Params.MediaProbers
+			}
+			if groupParams.CheckRepeatTime == 0 {
+				groupParams.CheckRepeatTime = cfg.Params.CheckRepeatTime
+			}
+			if groupParams.CheckBrokenTime == 0 {
+				groupParams.CheckBrokenTime = cfg.Params.CheckBrokenTime
+			}
+			if groupParams.ConnectTimeout == 0 {
+				groupParams.ConnectTimeout = cfg.Params.ConnectTimeout
+			}
+			if groupParams.RWTimeout == 0 {
+				groupParams.RWTimeout = cfg.Params.RWTimeout
+			}
+			if groupParams.SlowWarningTimeout == 0 {
+				groupParams.SlowWarningTimeout = cfg.Params.SlowWarningTimeout
+			}
+			if groupParams.VerySlowWarningTimeout == 0 {
+				groupParams.VerySlowWarningTimeout = cfg.Params.VerySlowWarningTimeout
+			}
+			if groupParams.TimeBetweenTasks == 0 {
+				groupParams.TimeBetweenTasks = cfg.Params.TimeBetweenTasks
+			}
+			if groupParams.TryOneSegment {
+				groupParams.TryOneSegment = cfg.Params.TryOneSegment
+			}
+			if groupParams.ListenHTTP == "" {
+				groupParams.ListenHTTP = cfg.Params.ListenHTTP
+			}
+			if groupParams.ErrorLog == "" {
+				groupParams.ErrorLog = cfg.Params.ErrorLog
+			}
+			Cfg.GroupParams[group] = groupParams
+		}
 	} else {
 		print("Config file not found. Hardcoded defaults used.\n")
 	}
+	//	fmt.Printf("HLS: %+v\n\n", Cfg.StreamsHLS)
+	// fmt.Printf("HTTP: %+v\n\n", Cfg.StreamsHTTP)
+
 	return
 }
+
+/*func GetGroupParam(group string, param method) {
+
+}*/
 
 // Helper. Split stream link to URI and Name parts.
 func splitName(source string) (uri string, name string) {
@@ -119,7 +185,14 @@ func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources
 }
 
 // Helper. Get remote list of streams.
-func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri string) error {
+func addRemoteConfig(dest *[]Stream, streamType StreamType, group, uri, remoteUser, remotePass string) error {
+	defer func() error {
+		if r := recover(); r != nil {
+			return errors.New(fmt.Sprintf("Can't get remote config for (%s) %s %s", streamType, group, uri))
+		}
+		return nil
+	}()
+
 	client := NewTimeoutClient(20*time.Second, 20*time.Second)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {

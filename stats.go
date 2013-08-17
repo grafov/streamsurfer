@@ -54,7 +54,7 @@ func StatKeeper(cfg *Config) {
 			ReportedStreams.data[state.Stream.Group][state.Stream.Name] = state
 			ReportedStreams.Unlock()
 			// Per hour statistics for all streams
-			if state.Last.ErrType != SUCCESS {
+			if state.Last.ErrType >= WARNING_LEVEL {
 				ErrHistory.Lock()
 				curhour := state.Last.Started.Format("06010215")
 				ErrHistory.count[ErrHistoryKey{curhour, state.Last.ErrType, state.Stream.Group, state.Stream.Name, state.Stream.URI}]++

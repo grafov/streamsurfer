@@ -15,13 +15,16 @@ func HttpAPI(cfg *Config) {
 	r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
 	r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
 	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
+	r.HandleFunc("/rprt/last-critical", rprtLastCritical).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
 	r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
+	r.HandleFunc("/rprt/g/{group}/last-critical", rprtGroupLastCritical).Methods("GET")
 	r.HandleFunc("/zabbix", zabbixStatus).Methods("GET", "HEAD")                             // text report for all groups to Zabbix
 	r.HandleFunc("/zabbix/g/{group}", zabbixStatus).Methods("GET", "HEAD")                   // text report for selected group to Zabbix
 	r.HandleFunc("/zabbix/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD")           // discovery data for Zabbix for all groups
 	r.HandleFunc("/zabbix/g/{group}/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for selected group
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
+	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.Params.ListenHTTP,
@@ -54,7 +57,13 @@ func rprtGroup(res http.ResponseWriter, req *http.Request) {
 // Group errors report
 func rprtGroupLast(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
-	res.Write(ReportLast(mux.Vars(req)))
+	res.Write(ReportLast(mux.Vars(req), false))
+}
+
+// Group errors report
+func rprtGroupLastCritical(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(ReportLast(mux.Vars(req), true))
 }
 
 // Group errors report
@@ -66,7 +75,13 @@ func rprt3Hours(res http.ResponseWriter, req *http.Request) {
 // Group errors report
 func rprtLast(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
-	res.Write(ReportLast(mux.Vars(req)))
+	res.Write(ReportLast(mux.Vars(req), false))
+}
+
+// Group errors report
+func rprtLastCritical(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Write(ReportLast(mux.Vars(req), true))
 }
 
 // Zabbix integration

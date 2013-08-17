@@ -52,16 +52,10 @@ func Report3Hours(vars map[string]string) []byte {
 				errtype = "bs"
 			case BADURI:
 				errtype = "bu"
-			case LISTEMPTY:
-				errtype = "le"
-			case BADFORMAT:
-				errtype = "bf"
 			case RTIMEOUT:
 				errtype = "rt"
 			case CTIMEOUT:
 				errtype = "ct"
-			case HLSPARSER:
-				errtype = "hls"
 			}
 			tmptbl[key.Group][key.Name][errtype] = s
 			switch {
@@ -87,7 +81,8 @@ func Report3Hours(vars map[string]string) []byte {
 	return []byte(page)
 }
 
-func ReportLast(vars map[string]string) []byte {
+// Report last state of reported streams. Only failures counted.
+func ReportLast(vars map[string]string, critical bool) []byte {
 	var values []map[string]string
 	var page string
 
@@ -96,13 +91,13 @@ func ReportLast(vars map[string]string) []byte {
 
 	if _, exists := vars["group"]; exists { // report for selected group
 		for _, value := range ReportedStreams.data[vars["group"]] {
-			rprtLastAddRow(&values, value)
+			rprtLastAddRow(&values, value, critical)
 		}
 		page = mustache.Render(ReportGroupLastTemplate, ReportData{Vars: vars, TableData: values})
 	} else { // report for all groups
 		for _, group := range ReportedStreams.data {
 			for _, value := range group {
-				rprtLastAddRow(&values, value)
+				rprtLastAddRow(&values, value, critical)
 			}
 		}
 		page = mustache.Render(ReportLastTemplate, ReportData{TableData: values})
@@ -112,15 +107,23 @@ func ReportLast(vars map[string]string) []byte {
 }
 
 // Helper.
-func rprtLastAddRow(values *[]map[string]string, value StreamStats) {
+func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical bool) {
 	var severity string
 
-	if value.Last.ErrType > SUCCESS || value.Last.Elapsed >= 10*time.Second {
-		switch value.Last.ErrType {
-		case SUCCESS, SLOW, VERYSLOW:
+	if value.Last.ErrType > BADREQUEST {
+		switch {
+		case value.Last.ErrType > BADREQUEST && value.Last.ErrType < BADSTATUS:
+			if critical {
+				return
+			}
 			severity = "warning"
-		default:
+		case value.Last.ErrType >= BADSTATUS:
 			severity = "error"
+		default:
+			if critical {
+				return
+			}
+			severity = "unknown"
 		}
 		*values = append(*values, map[string]string{
 			"uri":           value.Stream.URI,
@@ -129,7 +132,7 @@ func rprtLastAddRow(values *[]map[string]string, value StreamStats) {
 			"status":        value.Last.HTTPStatus,
 			"contentlength": strconv.FormatInt(value.Last.ContentLength, 10),
 			"started":       value.Last.Started.Format(TimeFormat),
-			"elapsed":       value.Last.Elapsed.String(),
+			"elapsed":       strconv.FormatFloat(value.Last.Elapsed.Seconds(), 'f', 3, 64),
 			"error":         StreamErrText(value.Last.ErrType),
 			"totalerrs":     strconv.FormatUint(uint64(value.Last.TotalErrs), 10),
 			"severity":      severity,

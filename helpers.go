@@ -29,6 +29,10 @@ func StreamErrText(err ErrType) string {
 	switch err {
 	case SUCCESS:
 		return "success"
+	case HLSPARSER:
+		return "HLS parser" // debug
+	case BADREQUEST:
+		return "invalid request" // debug
 	case SLOW:
 		return "slow response"
 	case VERYSLOW:
@@ -45,8 +49,6 @@ func StreamErrText(err ErrType) string {
 		return "timeout on read"
 	case CTIMEOUT:
 		return "connection timeout"
-	case HLSPARSER:
-		return "HLS parser" // debug
 	default:
 		return "unknown"
 	}

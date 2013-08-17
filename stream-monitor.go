@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Control monitoring of a single stream
+// Run monitors for each stream.
 func StreamMonitor(cfg *Config) {
 	var i uint
 
@@ -20,27 +20,31 @@ func StreamMonitor(cfg *Config) {
 	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
 
 	go HealthCheck(sampletasks)
+
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
 		go CupertinoProber(cfg, hlstasks)
 	}
 	fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
-	for i = 0; i < cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP; i++ {
-		go MediaProber(cfg, chunktasks)
-	}
-	fmt.Printf("%d media probers started.\n", cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP)
+
 	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
 		go SimpleProber(cfg, httptasks)
 	}
-	fmt.Printf("%d HTTP monitors started.\n", cfg.Params.ProbersHTTP)
+	fmt.Printf("%d HTTP probers started.\n", cfg.Params.ProbersHTTP)
+
+	for i = 0; i < cfg.Params.MediaProbers; i++ {
+		go MediaProber(cfg, chunktasks)
+	}
+	fmt.Printf("%d media probers started.\n", cfg.Params.MediaProbers)
+
 	for _, stream := range cfg.StreamsHLS {
 		go StreamBox(cfg, stream, HLS, hlstasks)
 	}
 	fmt.Printf("%d HLS monitors started.\n", len(cfg.StreamsHLS))
-	/*	for _, stream := range cfg.StreamsHTTP {
-			go GroupBox(cfg, stream, HTTP, httptasks)
-		}
-		fmt.Printf("%d HTTP monitors started.\n", len(cfg.StreamsHTTP))
-	*/
+
+	for _, stream := range cfg.StreamsHTTP {
+		go StreamBox(cfg, stream, HTTP, httptasks)
+	}
+	fmt.Printf("%d HTTP monitors started.\n", len(cfg.StreamsHTTP))
 }
 
 func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
@@ -62,15 +66,15 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 		errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
 		errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
 		if errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6 || errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6 {
-			addSleepToBrokenStream = 2 * time.Minute
+			addSleepToBrokenStream = time.Duration(rand.Intn(int(cfg.Params.CheckBrokenTime)+1)) * time.Second
 		} else {
 			addSleepToBrokenStream = 0
 		}
 		result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
 		go Report(stream, &result)
-		if result.ErrType != SUCCESS {
+		if result.ErrType >= WARNING_LEVEL {
 			go Log(ERROR, stream, result)
-			time.Sleep(time.Duration(rand.Intn(6)+1)*time.Second + addSleepToBrokenStream) // TODO config
+			time.Sleep(time.Duration(rand.Intn(int(cfg.Params.CheckRepeatTime)+10))*time.Millisecond + addSleepToBrokenStream) // TODO config
 		} else {
 			if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
 				result.ErrType = VERYSLOW
@@ -103,6 +107,12 @@ func SimpleProber(cfg *Config, tasks chan *Task) {
 // Parse and probe M3U8 playlists (multi- and single bitrate)
 // and report time statistics and errors
 func CupertinoProber(cfg *Config, tasks chan *Task) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("trace dumped in Cupertino prober:", r)
+		}
+	}()
+
 	for {
 		task := <-tasks
 		result := doTask(cfg, task)
@@ -136,7 +146,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 		return result
 	}
 	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
-	req, err := http.NewRequest("GET", task.URI, nil) // TODO в конфиге выбирать метод проверки
+	req, err := http.NewRequest("HEAD", task.URI, nil) // TODO в конфиге выбирать метод проверки
 	if err != nil {
 		result.ErrType = BADURI
 		result.HTTPCode = 0
@@ -168,8 +178,8 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
 	defer func() {
 		if r := recover(); r != nil {
-			//fmt.Println("trace dumped:", r)
-			result.ErrType = RTIMEOUT
+			//			fmt.Println("trace dumped in HLS parser:", r)
+			result.ErrType = HLSPARSER
 		}
 	}()
 
