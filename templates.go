@@ -62,7 +62,7 @@ const Report3HoursTemplate = `<!DOCTYPE html>
         <tbody>
         {{#TableData}}
           <tr>
-            <td>{{group}}</td>
+            <td><a href="/rprt/g/{{group}}/3hours">{{group}}</a></td>
             <td><a href="{{uri}}">{{name}}</a></td>
             <td{{#sw-severity}} class="{{sw-severity}}"{{/sw-severity}} rel="tooltip" title="Slow response">{{sw}}</td>
             <td{{#bs-severity}} class="{{bs-severity}}"{{/bs-severity}} rel="tooltip" title="Bad status">{{bs}}</td>
@@ -118,7 +118,7 @@ const ReportLastTemplate = `<!DOCTYPE html>
         <tbody>
         {{#TableData}}
           <tr class="{{severity}}">
-            <td>{{group}}</td>
+            <td><a href="/rprt/g/{{group}}/{{report}}">{{group}}</a></td>
             <td><a href="{{uri}}">{{name}}</a></td>
             <td>{{status}}</td>
             <td>{{contentlength}}</td>

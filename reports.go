@@ -109,9 +109,9 @@ func ReportLast(vars map[string]string, critical bool) []byte {
 	return []byte(page)
 }
 
-// Helper.
+// Helper. For "last*" report.
 func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical bool) {
-	var severity string
+	var severity, report string
 
 	switch {
 	case value.Last.ErrType > WARNING_LEVEL && value.Last.ErrType < ERROR_LEVEL:
@@ -129,6 +129,11 @@ func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical boo
 	default:
 		return
 	}
+	if critical {
+		report = "last-critical"
+	} else {
+		report = "last"
+	}
 	*values = append(*values, map[string]string{
 		"uri":           value.Stream.URI,
 		"name":          value.Stream.Name,
@@ -140,5 +145,6 @@ func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical boo
 		"error":         StreamErrText(value.Last.ErrType),
 		"totalerrs":     strconv.FormatUint(uint64(value.Last.TotalErrs), 10),
 		"severity":      severity,
+		"report":        report,
 	})
 }
