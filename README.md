@@ -2,13 +2,15 @@ HLS Probe Utility
 =================
 
 Utility to detect errors in HTTP Live Streams (Apple HLS).
-It may be used as regular monitoring tool and for mediaserver stress testing.
+It may be used as regular monitoring tool and stress testing for mediaservers
+(and any HTTP-servers too).
+
 Features are:
 
  * parse M3U8-playlists (master and single-bitrate playlists)
  * detect bad playlists format (empty playlists, incorrect chunk durations)
- * check HTTP response statuses and webserver timeouts
- * response time statistics
+ * check HTTP response statuses
+ * collects response time statistics
  * webreports to represent collected statistics
  * integration with Zabbix (http://zabbix.com) monitoring software
 
@@ -19,6 +21,7 @@ Planned features:
  * probe chunks with `mediainfo` utility (from ffmpeg)
  * REST HTTP to represent collected data and utility control
  * aggregate and analyze statistics from other hlsprobe nodes
+ * persistent storage for statistics and reports generation
 
 This utility can't be used for HLS playback.
 
