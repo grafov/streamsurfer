@@ -36,9 +36,9 @@ const Report3HoursTemplate = `<!DOCTYPE html>
           <tr>
             <th rowspan="2">Group</th>
             <th rowspan="2">Name</th>
-            <th colspan="5">Last hour</th>
-            <th colspan="5">Two hours ago</th>
-            <th colspan="5">Three hours ago</th>
+            <th colspan="6">Last hour</th>
+            <th colspan="6">Two hours ago</th>
+            <th colspan="6">Three hours ago</th>
           </tr>
           <tr>
             <th rel="tooltip" title="Slow response">SR</th>
@@ -64,12 +64,12 @@ const Report3HoursTemplate = `<!DOCTYPE html>
           <tr>
             <td>{{group}}</td>
             <td><a href="{{uri}}">{{name}}</a></td>
-            <td{{#sw-severity}} class="{{sw-severity}}"{{/sw-severity}}>{{sw}}</td>
-            <td{{#bs-severity}} class="{{bs-severity}}"{{/bs-severity}}>{{bs}}</td>
-            <td{{#bu-severity}} class="{{bu-severity}}"{{/bu-severity}}>{{bu}}</td>
-            <td{{#rt-severity}} class="{{rt-severity}}"{{/rt-severity}}>{{rt}}</td>
-            <td{{#ct-severity}} class="{{ct-severity}}"{{/ct-severity}}>{{ct}}</td>
-            <td{{#cr-severity}} class="{{cr-severity}}"{{/cr-severity}}>{{cr}}</td>
+            <td{{#sw-severity}} class="{{sw-severity}}"{{/sw-severity}} rel="tooltip" title="Slow response">{{sw}}</td>
+            <td{{#bs-severity}} class="{{bs-severity}}"{{/bs-severity}} rel="tooltip" title="Bad status">{{bs}}</td>
+            <td{{#bu-severity}} class="{{bu-severity}}"{{/bu-severity}} rel="tooltip" title="Bad URI">{{bu}}</td>
+            <td{{#rt-severity}} class="{{rt-severity}}"{{/rt-severity}} rel="tooltip" title="Timeout on read">{{rt}}</td>
+            <td{{#ct-severity}} class="{{ct-severity}}"{{/ct-severity}} rel="tooltip" title="Timeout on connect">{{ct}}</td>
+            <td{{#cr-severity}} class="{{cr-severity}}"{{/cr-severity}} rel="tooltip" title="Slow response">{{cr}}</td>
             <td>{{sw2}}</td>
             <td>{{bs2}}</td>
             <td>{{bs2}}</td>

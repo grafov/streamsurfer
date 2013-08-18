@@ -29,6 +29,12 @@ func LogKeeper(cfg *Config) {
 	var skip error
 	var logw *bufio.Writer
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Logger trace:", r)
+		}
+	}()
+
 	logq = make(chan LogMessage, 1024)
 	logf, skip := os.Create(cfg.Params.ErrorLog)
 	if skip == nil {

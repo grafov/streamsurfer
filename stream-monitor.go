@@ -72,6 +72,12 @@ func GroupBox(cfg *Config, group string, streamType StreamType, taskq chan *Task
 func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
 	var addSleepToBrokenStream time.Duration
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Stream %s trace: %s\n", stream.Name, r)
+		}
+	}()
+
 	task := &Task{Stream: stream, ReplyTo: make(chan TaskResult)}
 	errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
 	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
@@ -83,13 +89,24 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 		prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
 		errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
 		errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
-		if errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6 || errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6 {
+
+		switch {
+		// too much repeatable errors per hour:
+		case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6:
+		case errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
 			addSleepToBrokenStream = time.Duration(rand.Intn(int(cfg.Params.CheckBrokenTime)+1)) * time.Second
-		} else {
+		// permanent error, not a timeout:
+		case result.ErrType > CRITICAL_LEVEL:
+			addSleepToBrokenStream = time.Duration(rand.Intn(int(cfg.Params.CheckBrokenTime)+1)) * time.Second
+		// works ok:
+		case result.ErrType == SUCCESS:
+		default:
 			addSleepToBrokenStream = 0
 		}
 		result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
+
 		go Report(stream, &result)
+
 		if result.ErrType >= WARNING_LEVEL {
 			go Log(ERROR, stream, result)
 			time.Sleep(time.Duration(rand.Intn(int(cfg.Params.CheckRepeatTime)+10))*time.Millisecond + addSleepToBrokenStream) // TODO config
@@ -166,6 +183,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
 	req, err := http.NewRequest(cfg.Params.MethodHTTP, task.URI, nil)
 	if err != nil {
+		fmt.Println(err)
 		result.ErrType = BADURI
 		result.HTTPCode = 0
 		result.HTTPStatus = ""

@@ -21,21 +21,22 @@ const (
 // Error codes (ordered by errors importance).
 // If several errors detected then only one with the heaviest weight reported.
 const (
-	SUCCESS       ErrType = iota
-	DEBUG_LEVEL           // internal debug messages follow below:
-	HLSPARSER             // HLS parser error (debug)
-	BADREQUEST            // Request failed (internal client error)
-	WARNING_LEVEL         // warnings follow below:
-	SLOW                  // SlowWarning threshold on reading server response
-	VERYSLOW              // VerySlowWarning threshold on reading server response
-	RTIMEOUT              // Timeout on read
-	CTIMEOUT              // Timeout on connect
-	ERROR_LEVEL           // errors follow below:
-	REFUSED               // connectin refused
-	BADSTATUS             // HTTP Status >= 400
-	BADURI                // Incorret URI format
-	LISTEMPTY             // HLS specific (by m3u8 lib)
-	BADFORMAT             // HLS specific (by m3u8 lib)
+	SUCCESS        ErrType = iota
+	DEBUG_LEVEL            // internal debug messages follow below:
+	HLSPARSER              // HLS parser error (debug)
+	BADREQUEST             // Request failed (internal client error)
+	WARNING_LEVEL          // warnings follow below:
+	SLOW                   // SlowWarning threshold on reading server response
+	VERYSLOW               // VerySlowWarning threshold on reading server response
+	ERROR_LEVEL            // errors follow below:
+	RTIMEOUT               // Timeout on read
+	CTIMEOUT               // Timeout on connect
+	CRITICAL_LEVEL         // permanent errors level
+	REFUSED                // connectin refused
+	BADSTATUS              // HTTP Status >= 400
+	BADURI                 // Incorret URI format
+	LISTEMPTY              // HLS specific (by m3u8 lib)
+	BADFORMAT              // HLS specific (by m3u8 lib)
 	UNKNOWN
 )
 

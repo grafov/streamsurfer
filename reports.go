@@ -34,17 +34,7 @@ func Report3Hours(vars map[string]string) []byte {
 
 	for key, val := range ErrHistory.count {
 		errtype := ""
-		s := strconv.FormatInt(int64(val), 10)
 		if key.Curhour == curhour {
-			if _, exists := tmptbl[key.Group]; !exists {
-				tmptbl[key.Group] = make(map[string]map[string]string)
-			}
-			if _, exists := tmptbl[key.Group][key.Name]; !exists {
-				tmptbl[key.Group][key.Name] = make(map[string]string)
-			}
-			tmptbl[key.Group][key.Name]["group"] = key.Group
-			tmptbl[key.Group][key.Name]["name"] = key.Name
-			tmptbl[key.Group][key.Name]["uri"] = key.URI
 			switch key.ErrType {
 			case SLOW, VERYSLOW:
 				errtype = "sw"
@@ -58,8 +48,19 @@ func Report3Hours(vars map[string]string) []byte {
 				errtype = "ct"
 			case REFUSED:
 				errtype = "cr"
+			default:
+				continue // count only errors listed above
 			}
-			tmptbl[key.Group][key.Name][errtype] = s
+			if _, exists := tmptbl[key.Group]; !exists {
+				tmptbl[key.Group] = make(map[string]map[string]string)
+			}
+			if _, exists := tmptbl[key.Group][key.Name]; !exists {
+				tmptbl[key.Group][key.Name] = make(map[string]string)
+			}
+			tmptbl[key.Group][key.Name][errtype] = strconv.FormatInt(int64(val), 10)
+			tmptbl[key.Group][key.Name]["group"] = key.Group
+			tmptbl[key.Group][key.Name]["name"] = key.Name
+			tmptbl[key.Group][key.Name]["uri"] = key.URI
 			switch { // how much errors per hour?
 			case val == 1:
 				tmptbl[key.Group][key.Name][fmt.Sprintf("%s-severity", errtype)] = "info"
@@ -118,13 +119,15 @@ func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical boo
 			return
 		}
 		severity = "warning"
-	case value.Last.ErrType > ERROR_LEVEL:
-		severity = "error"
-	default:
+	case value.Last.ErrType > ERROR_LEVEL && value.Last.ErrType < CRITICAL_LEVEL:
 		if critical {
 			return
 		}
-		severity = "info"
+		severity = "error"
+	case value.Last.ErrType > CRITICAL_LEVEL:
+		severity = "critical"
+	default:
+		return
 	}
 	*values = append(*values, map[string]string{
 		"uri":           value.Stream.URI,
