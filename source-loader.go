@@ -46,6 +46,7 @@ type Params struct {
 	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout,omitempty"` // sec
 	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks,omitempty"`        // ms
 	TryOneSegment          bool          `yaml:"one-segment,omitempty"`
+	MethodHTTP             string        `yaml:"http-method,omitempty"` // GET, HEAD
 	ListenHTTP             string        `yaml:"http-api-listen,omitempty"`
 	ErrorLog               string        `yaml:"error-log,omitempty"`
 	Zabbix                 Zabbix        `yaml:"zabbix,omitempty"`
@@ -77,6 +78,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		Cfg.GroupsHTTP = make(map[string]string)
 		Cfg.Params = cfg.Params
 		Cfg.GroupParams = map[string]Params{}
+		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName

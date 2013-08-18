@@ -31,6 +31,7 @@ const (
 	RTIMEOUT              // Timeout on read
 	CTIMEOUT              // Timeout on connect
 	ERROR_LEVEL           // errors follow below:
+	REFUSED               // connectin refused
 	BADSTATUS             // HTTP Status >= 400
 	BADURI                // Incorret URI format
 	LISTEMPTY             // HLS specific (by m3u8 lib)

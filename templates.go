@@ -13,7 +13,8 @@ const ReportMainPageTemplate =`<!DOCTYPE html>
 <body><h1>Reports are:</h1>
  <ul>
   <li><a href="rprt/3hours">Errors for all streams for last 3 hours</a></li>
-  <li><a href="rprt/last">Last stream errors</a></li>
+  <li><a href="rprt/last">Last streams errors (complete)</a></li>
+  <li><a href="rprt/last-critical">Last streams errors (critical only)</a></li>
  </ul>
 </body>
 </html>
@@ -55,6 +56,7 @@ const Report3HoursTemplate = `<!DOCTYPE html>
             <th rel="tooltip" title="Bad URI">BU</th>
             <th rel="tooltip" title="Timeout on read">RT</th>
             <th rel="tooltip" title="Timeout on connect">CT</th>
+            <th rel="tooltip" title="Connection refused">CR</th>
           </tr>
         </thead>
         <tbody>
@@ -67,16 +69,19 @@ const Report3HoursTemplate = `<!DOCTYPE html>
             <td{{#bu-severity}} class="{{bu-severity}}"{{/bu-severity}}>{{bu}}</td>
             <td{{#rt-severity}} class="{{rt-severity}}"{{/rt-severity}}>{{rt}}</td>
             <td{{#ct-severity}} class="{{ct-severity}}"{{/ct-severity}}>{{ct}}</td>
+            <td{{#cr-severity}} class="{{cr-severity}}"{{/cr-severity}}>{{cr}}</td>
             <td>{{sw2}}</td>
             <td>{{bs2}}</td>
             <td>{{bs2}}</td>
             <td>{{rt2}}</td>
             <td>{{ct2}}</td>
+            <td>{{cr2}}</td>
             <td>{{sw3}}</td>
             <td>{{bs3}}</td>
             <td>{{bu3}}</td>
             <td>{{rt3}}</td>
             <td>{{ct3}}</td>
+            <td>{{cr3}}</td>
           </tr>
         {{/TableData}}
         </tbody>

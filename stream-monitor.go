@@ -42,6 +42,14 @@ func StreamMonitor(cfg *Config) {
 		fmt.Printf("%d media probers started.\n", cfg.Params.MediaProbers)
 	}
 
+	for _, group := range cfg.GroupsHLS {
+		go GroupBox(cfg, group, HLS, hlstasks)
+	}
+
+	for _, group := range cfg.GroupsHTTP {
+		go GroupBox(cfg, group, HTTP, httptasks)
+	}
+
 	for _, stream := range cfg.StreamsHLS {
 		go StreamBox(cfg, stream, HLS, hlstasks)
 	}
@@ -57,7 +65,7 @@ func StreamMonitor(cfg *Config) {
 	}
 }
 
-func GroupBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
+func GroupBox(cfg *Config, group string, streamType StreamType, taskq chan *Task) {
 }
 
 // Container incapsulates data and logic about single stream checks.
@@ -156,7 +164,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 		return result
 	}
 	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
-	req, err := http.NewRequest("HEAD", task.URI, nil) // TODO в конфиге выбирать метод проверки
+	req, err := http.NewRequest(cfg.Params.MethodHTTP, task.URI, nil)
 	if err != nil {
 		result.ErrType = BADURI
 		result.HTTPCode = 0
@@ -167,7 +175,7 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
-		result.ErrType = UNKNOWN
+		result.ErrType = REFUSED
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1

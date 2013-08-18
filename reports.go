@@ -56,9 +56,11 @@ func Report3Hours(vars map[string]string) []byte {
 				errtype = "rt"
 			case CTIMEOUT:
 				errtype = "ct"
+			case REFUSED:
+				errtype = "cr"
 			}
 			tmptbl[key.Group][key.Name][errtype] = s
-			switch {
+			switch { // how much errors per hour?
 			case val == 1:
 				tmptbl[key.Group][key.Name][fmt.Sprintf("%s-severity", errtype)] = "info"
 			case val > 1 && val <= 6:
@@ -110,32 +112,30 @@ func ReportLast(vars map[string]string, critical bool) []byte {
 func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical bool) {
 	var severity string
 
-	if value.Last.ErrType > BADREQUEST {
-		switch {
-		case value.Last.ErrType > BADREQUEST && value.Last.ErrType < BADSTATUS:
-			if critical {
-				return
-			}
-			severity = "warning"
-		case value.Last.ErrType >= BADSTATUS:
-			severity = "error"
-		default:
-			if critical {
-				return
-			}
-			severity = "unknown"
+	switch {
+	case value.Last.ErrType > WARNING_LEVEL && value.Last.ErrType < ERROR_LEVEL:
+		if critical {
+			return
 		}
-		*values = append(*values, map[string]string{
-			"uri":           value.Stream.URI,
-			"name":          value.Stream.Name,
-			"group":         value.Stream.Group,
-			"status":        value.Last.HTTPStatus,
-			"contentlength": strconv.FormatInt(value.Last.ContentLength, 10),
-			"started":       value.Last.Started.Format(TimeFormat),
-			"elapsed":       strconv.FormatFloat(value.Last.Elapsed.Seconds(), 'f', 3, 64),
-			"error":         StreamErrText(value.Last.ErrType),
-			"totalerrs":     strconv.FormatUint(uint64(value.Last.TotalErrs), 10),
-			"severity":      severity,
-		})
+		severity = "warning"
+	case value.Last.ErrType > ERROR_LEVEL:
+		severity = "error"
+	default:
+		if critical {
+			return
+		}
+		severity = "info"
 	}
+	*values = append(*values, map[string]string{
+		"uri":           value.Stream.URI,
+		"name":          value.Stream.Name,
+		"group":         value.Stream.Group,
+		"status":        value.Last.HTTPStatus,
+		"contentlength": strconv.FormatInt(value.Last.ContentLength, 10),
+		"started":       value.Last.Started.Format(TimeFormat),
+		"elapsed":       strconv.FormatFloat(value.Last.Elapsed.Seconds(), 'f', 3, 64),
+		"error":         StreamErrText(value.Last.ErrType),
+		"totalerrs":     strconv.FormatUint(uint64(value.Last.TotalErrs), 10),
+		"severity":      severity,
+	})
 }

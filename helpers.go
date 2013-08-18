@@ -49,6 +49,8 @@ func StreamErrText(err ErrType) string {
 		return "timeout on read"
 	case CTIMEOUT:
 		return "connection timeout"
+	case REFUSED:
+		return "connection refused"
 	default:
 		return "unknown"
 	}
