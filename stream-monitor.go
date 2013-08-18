@@ -71,6 +71,7 @@ func GroupBox(cfg *Config, group string, streamType StreamType, taskq chan *Task
 // Container incapsulates data and logic about single stream checks.
 func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Task) {
 	var addSleepToBrokenStream time.Duration
+	var min, max int
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -89,15 +90,17 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 		prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
 		errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
 		errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
+		max = int(cfg.Params.CheckBrokenTime)
+		min = int(cfg.Params.CheckBrokenTime / 4. * 3.)
 
 		switch {
 		// too much repeatable errors per hour:
 		case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6:
 		case errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
-			addSleepToBrokenStream = time.Duration(rand.Intn(int(cfg.Params.CheckBrokenTime)+1)) * time.Second
+			addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
 		// permanent error, not a timeout:
 		case result.ErrType > CRITICAL_LEVEL:
-			addSleepToBrokenStream = time.Duration(rand.Intn(int(cfg.Params.CheckBrokenTime)+1)) * time.Second
+			addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
 		// works ok:
 		case result.ErrType == SUCCESS:
 		default:
@@ -109,7 +112,6 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 
 		if result.ErrType >= WARNING_LEVEL {
 			go Log(ERROR, stream, result)
-			time.Sleep(time.Duration(rand.Intn(int(cfg.Params.CheckRepeatTime)+10))*time.Millisecond + addSleepToBrokenStream) // TODO config
 		} else {
 			if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
 				result.ErrType = VERYSLOW
@@ -118,8 +120,10 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 				result.ErrType = SLOW
 				go Log(WARNING, stream, result)
 			}
-			time.Sleep(time.Duration(rand.Intn(20)+1)*time.Second + addSleepToBrokenStream) // TODO config
 		}
+		max = int(cfg.Params.CheckRepeatTime)
+		min = int(cfg.Params.CheckRepeatTime / 4. * 3.)
+		time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Millisecond + addSleepToBrokenStream)
 	}
 }
 
