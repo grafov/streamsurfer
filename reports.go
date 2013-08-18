@@ -145,6 +145,6 @@ func rprtLastAddRow(values *[]map[string]string, value StreamStats, critical boo
 		"error":         StreamErrText(value.Last.ErrType),
 		"totalerrs":     strconv.FormatUint(uint64(value.Last.TotalErrs), 10),
 		"severity":      severity,
-		"report":        report,
+		"report":        report, // report name
 	})
 }

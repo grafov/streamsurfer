@@ -12,7 +12,7 @@ Features are:
  * webreports to represent collected statistics
  * integration with Zabbix (http://zabbix.com) monitoring software
 
-**The code in alpha. Mostly works but not all complete.**
+**The code in alpha. Undocumented. Not completed. Though it works.**
 
 Planned features:
 
