@@ -1,16 +1,16 @@
-SOURCES=hlsprobe2.go structures.go source-loader.go stream-monitor.go http-client.go http-api.go stats.go reports.go logger.go zabbix.go helpers.go templates.go
+SOURCES=streamsurfer.go structures.go source-loader.go stream-monitor.go http-client.go http-api.go stats.go reports.go logger.go zabbix.go helpers.go templates.go
 
-hlsprobe2: $(SOURCES)
+streamsurfer: $(SOURCES)
 	go build $(SOURCES)
-build: hlsprobe2
-paxbuild: hlsprobe2
+build: streamsurfer
+paxbuild: streamsurfer
 # use sudo or run as root
-	paxctl -cm hlsprobe2
+	paxctl -cm streamsurfer
 run: $(SOURCES)
 	go run $(SOURCES)
-install: hlsprobe2
+install: streamsurfer
 # use sudo or run as root
-	strip hlsprobe2
-	cp -a hlsprobe2 /usr/local/bin
+	strip streamsurfer
+	cp -a streamsurfer /usr/local/bin
 clean:
-	rm hlsprobe2
+	rm streamsurfer

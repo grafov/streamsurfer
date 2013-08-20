@@ -1,9 +1,9 @@
-HLS Probe Utility
-=================
+Stream Surfer
+=============
 
-Utility to detect errors in HTTP Live Streams (Apple HLS).
-It may be used as regular monitoring tool and stress testing for mediaservers
-(and any HTTP-servers too).
+Stream Surfer — probe utiliy for HTTP video streaming. The utility detects errors in
+HTTP Live Streams (Apple HLS) and health of any HTTP resources. It may be used as
+regular monitoring tool and stress testing for mediaservers (and any HTTP-servers too).
 
 Features are:
 
@@ -25,7 +25,7 @@ Planned features:
 
 This utility can't be used for HLS playback.
 
-`hlsprobe2` is an improved port of Python `hlsprobe` (https://github.com/grafov/hlsprobe).
+`streamsurfer` is an improved port of Python `hlsprobe` (https://github.com/grafov/hlsprobe).
 
 Install
 -------

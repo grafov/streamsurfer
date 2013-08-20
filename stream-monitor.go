@@ -197,7 +197,11 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
-		result.ErrType = REFUSED
+		if result.Elapsed >= cfg.Params.ConnectTimeout*time.Second {
+			result.ErrType = CTIMEOUT
+		} else {
+			result.ErrType = REFUSED
+		}
 		result.HTTPCode = 0
 		result.HTTPStatus = ""
 		result.ContentLength = -1
