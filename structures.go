@@ -16,6 +16,7 @@ const (
 	SAMPLE StreamType = iota // internet resources for monitor self checks
 	HTTP                     //
 	HLS
+	HDS
 )
 
 // Error codes (ordered by errors importance).
@@ -40,8 +41,15 @@ const (
 	UNKNOWN
 )
 
+// Commands for probers.
+const (
+	STOP Command = iota
+	START
+)
+
 type StreamType uint // Type of checked streams
 type ErrType uint
+type Command uint
 
 type Stream struct {
 	URI   string

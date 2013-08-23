@@ -14,18 +14,26 @@ import (
 func StreamMonitor(cfg *Config) {
 	var i uint
 
-	sampletasks := make(chan *Task, 2)
 	httptasks := make(chan *Task, len(cfg.StreamsHTTP)*4)
 	hlstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
-	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
+	hdstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
+	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHDS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
+	ctl := make(chan struct{})
 
-	go HealthCheck(sampletasks)
+	go HealthCheck(cfg, ctl)
 
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
 		go CupertinoProber(cfg, hlstasks)
 	}
 	if cfg.Params.ProbersHLS > 0 {
 		fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
+	}
+
+	for i = 0; i < cfg.Params.ProbersHDS; i++ {
+		go SanjoseProber(cfg, hdstasks)
+	}
+	if cfg.Params.ProbersHDS > 0 {
+		fmt.Printf("%d HDS probers started.\n", cfg.Params.ProbersHDS)
 	}
 
 	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
@@ -128,8 +136,29 @@ func StreamBox(cfg *Config, stream Stream, streamType StreamType, taskq chan *Ta
 }
 
 // Check & report internet availability
-func HealthCheck(taskq chan *Task) {
+func HealthCheck(cfg *Config, ctl chan struct{}) {
+	var accessible bool
 
+	for {
+		time.Sleep(30 * time.Second)
+		accessible = true
+
+		for _, uri := range cfg.Samples {
+			client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
+			req, err := http.NewRequest("HEAD", uri, nil)
+			if err != nil {
+				fmt.Println("Internet not available. All checks stopped.")
+				accessible = false
+			}
+			_, err = client.Do(req)
+			if err != nil {
+				accessible = false
+			}
+		}
+		if !accessible {
+			close(ctl)
+		}
+	}
 }
 
 // Probe HTTP without additional protocola parsing.
@@ -143,6 +172,7 @@ func SimpleProber(cfg *Config, tasks chan *Task) {
 	}
 }
 
+// HTTP Live Streaming support.
 // Parse and probe M3U8 playlists (multi- and single bitrate)
 // and report time statistics and errors
 func CupertinoProber(cfg *Config, tasks chan *Task) {
@@ -159,6 +189,17 @@ func CupertinoProber(cfg *Config, tasks chan *Task) {
 			verifyHLS(cfg, task, result)
 			// вернуть variants и по ним передать задачи в канал CupertinoProber
 		}
+		task.ReplyTo <- *result
+		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
+	}
+}
+
+// HTTP Dynamic Streaming prober.
+// Parse and probe F4M playlists and report time statistics and errors.
+func SanjoseProber(cfg *Config, tasks chan *Task) {
+	for {
+		task := <-tasks
+		result := doTask(cfg, task)
 		task.ReplyTo <- *result
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}

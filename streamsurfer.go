@@ -17,14 +17,14 @@ func main() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("HLS Probe trace dumped:", r)
+			fmt.Println("Stream Surfer trace dumped:", r)
 			if err := ioutil.WriteFile(FullPath("~/hlsprobe2.trace"), r.([]byte), 0644); err != nil {
 				fmt.Println("Can't write trace file!")
 			}
 		}
 	}()
 
-	fmt.Printf("HLS Probe vers. %s\n", VERSION)
+	fmt.Printf("Stream Surfer vers. %s\n", VERSION)
 	flag.Parse()
 
 	//cfgq := make(chan ConfigQuery, 12)

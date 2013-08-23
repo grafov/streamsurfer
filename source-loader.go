@@ -15,8 +15,10 @@ import (
 // Exported config structure
 type Config struct {
 	StreamsHLS  []Stream
+	StreamsHDS  []Stream
 	StreamsHTTP []Stream
 	GroupsHLS   map[string]string // map[group]group
+	GroupsHDS   map[string]string // map[group]group
 	GroupsHTTP  map[string]string // map[group]group
 	Samples     []string
 	Params      Params
@@ -25,7 +27,8 @@ type Config struct {
 
 // Internal config structure parsed from YAML
 type config struct {
-	StreamsHLS     map[string][]string `yaml:"hls-stream,omitempty"`       // HLS parsing
+	StreamsHLS     map[string][]string `yaml:"hls-streams,omitempty"`      // HLS parsing
+	StreamsHDS     map[string][]string `yaml:"hds-streams,omitempty"`      // HDS parsing
 	StreamsHTTP    map[string][]string `yaml:"http-streams,omitempty"`     // plain HTTP checks
 	GetStreamsHLS  []string            `yaml:"get-hls-streams,omitempty"`  // load remote HLS-checks configuration
 	GetStreamsHTTP []string            `yaml:"get-http-streams,omitempty"` // load remote HTTP-checks configuration
@@ -37,6 +40,7 @@ type config struct {
 type Params struct {
 	ProbersHTTP            uint          `yaml:"http-probers,omitempty"`              // num of
 	ProbersHLS             uint          `yaml:"hls-probers,omitempty"`               // num of
+	ProbersHDS             uint          `yaml:"hds-probers,omitempty"`               // num of
 	MediaProbers           uint          `yaml:"media-probers,omitempty"`             // num of
 	CheckRepeatTime        uint          `yaml:"check-repeat-time"`                   // ms
 	CheckBrokenTime        uint          `yaml:"check-broken-time"`                   // ms
@@ -83,6 +87,10 @@ func ReadConfig(confile string) (Cfg *Config) {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName
 		}
+		for groupName, streamList := range cfg.StreamsHDS {
+			addLocalConfig(&Cfg.StreamsHDS, HDS, groupName, streamList)
+			Cfg.GroupsHDS[groupName] = groupName
+		}
 		for groupName, streamList := range cfg.StreamsHTTP {
 			addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
 			Cfg.GroupsHTTP[groupName] = groupName
@@ -93,8 +101,8 @@ func ReadConfig(confile string) (Cfg *Config) {
 				remoteUser := ""
 				remotePass := ""
 				if _, exists := cfg.GroupParams[groupName]; exists {
-					remoteUser = "root"  //cfg.GroupParams[groupName].User
-					remotePass = "zveri" //cfg.GroupParams[groupName].Pass
+					remoteUser = cfg.GroupParams[groupName].User
+					remotePass = cfg.GroupParams[groupName].Pass
 				}
 				err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
