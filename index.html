@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Stream Surfer by grafov</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/main.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+
+      <header>
+        <h1>Stream Surfer</h1>
+        <p>Utility to probe Apple HLS streams.</p>
+      </header>
+
+      <div id="banner">
+        <span id="logo"></span>
+
+        <a href="https://github.com/grafov/streamsurfer" class="button fork"><strong>View On GitHub</strong></a>
+        <div class="downloads">
+          <span>Downloads:</span>
+          <ul>
+            <li><a href="https://github.com/grafov/streamsurfer/zipball/master" class="button">ZIP</a></li>
+            <li><a href="https://github.com/grafov/streamsurfer/tarball/master" class="button">TAR</a></li>
+          </ul>
+        </div>
+      </div><!-- end banner -->
+
+    <div class="wrapper">
+      <nav>
+        <ul></ul>
+      </nav>
+      <section>
+        <h1>
+<a name="stream-surfer" class="anchor" href="#stream-surfer"><span class="octicon octicon-link"></span></a>Stream Surfer</h1>
+
+<p>Stream Surfer — probe utiliy for HTTP video streaming. The utility detects errors in
+HTTP Live Streams (Apple HLS) and health of any HTTP resources. It may be used as
+regular monitoring tool and stress testing for mediaservers (and any HTTP-servers too).</p>
+
+<p>Features are:</p>
+
+<ul>
+<li>parse M3U8-playlists (master and single-bitrate playlists)</li>
+<li>detect bad playlists format (empty playlists, incorrect chunk durations)</li>
+<li>check HTTP response statuses</li>
+<li>collects response time statistics</li>
+<li>webreports to represent collected statistics</li>
+<li>integration with Zabbix (<a href="http://zabbix.com">http://zabbix.com</a>) monitoring software</li>
+</ul><p><strong>The code in alpha. Undocumented. Not completed. Though it works.</strong></p>
+
+<p>Planned features:</p>
+
+<ul>
+<li>probe chunks with <code>mediainfo</code> utility (from ffmpeg)</li>
+<li>REST HTTP to represent collected data and utility control</li>
+<li>aggregate and analyze statistics from other streamsurfer nodes</li>
+<li>persistent storage for statistics and reports generation</li>
+</ul><p>This utility can't be used for HLS playback.</p>
+
+<p><code>streamsurfer</code> is an improved port of Python <code>hlsprobe</code> (<a href="https://github.com/grafov/hlsprobe">https://github.com/grafov/hlsprobe</a>).</p>
+
+<h2>
+<a name="install" class="anchor" href="#install"><span class="octicon octicon-link"></span></a>Install</h2>
+
+<h3>
+<a name="use-binary" class="anchor" href="#use-binary"><span class="octicon octicon-link"></span></a>Use binary</h3>
+
+<p>TODO Instructions follows later.</p>
+
+<h3>
+<a name="build-from-sources" class="anchor" href="#build-from-sources"><span class="octicon octicon-link"></span></a>Build from sources</h3>
+
+<p>You need Go language (<a href="http://golang.org">http://golang.org</a>) environment installed.
+Then:</p>
+
+<pre><code>go get github.com/grafov/bcast
+go get github.com/grafov/m3u8
+go get github.com/gorilla/mux
+go get github.com/hoisie/mustache
+git clone https://github.com/grafov/streamsurfer
+cd streamsurfer
+sudo make install
+</code></pre>
+
+<p>The code includes Bootstrap 2 (<a href="http://getbootstrap.com">http://getbootstrap.com</a>) library (under Apache License).
+It may be packaged with <code>streamsurfer</code> due GPLv3 license.
+To simplify installation Bootstrap code yet included in <code>streamsurfer</code> package.
+Later it will be splitted and Bootstrap will be downloaded separately.</p>
+
+<h2>
+<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h2>
+
+<p>Setup configuration file (copy one of templates from package) and start utility:</p>
+
+<pre><code>streamsurfer --config=config.yml
+</code></pre>
+
+<p>All stream problems logged to error log (<code>error-log</code> parameter in the config <code>params</code> section).
+Web reports available at <code>localhost:8088</code> (define listener with <code>http-api-listen</code>).</p>
+
+<h2>
+<a name="similar-projects" class="anchor" href="#similar-projects"><span class="octicon octicon-link"></span></a>Similar projects</h2>
+
+<ul>
+<li><a href="https://code.google.com/p/hls-player">https://code.google.com/p/hls-player</a></li>
+<li><a href="https://github.com/brookemckim/hlspider">https://github.com/brookemckim/hlspider</a></li>
+</ul><h2>
+<a name="project-status" class="anchor" href="#project-status"><span class="octicon octicon-link"></span></a>Project status</h2>
+
+<p><a href="https://travis-ci.org/grafov/hlsprobe2"><img src="https://travis-ci.org/grafov/hlsprobe2.png?branch=master" alt="Build Status"></a></p>
+
+<p><a href="http://stillmaintained.com/grafov/hlsprobe2"><img src="http://stillmaintained.com/grafov/hlsprobe2.png" alt="Is maintained?"></a></p>
+      </section>
+      <footer>
+        <p>Project maintained by <a href="https://github.com/grafov">grafov</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
