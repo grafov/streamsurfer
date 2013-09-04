@@ -44,7 +44,7 @@ Then:
 	go get github.com/gorilla/mux
 	go get github.com/hoisie/mustache
 	git clone https://github.com/grafov/streamsurfer
-	cd hlsprobe2
+	cd streamsurfer
 	sudo make install
 
 The code includes Bootstrap 2 (http://getbootstrap.com) library (under Apache License).
