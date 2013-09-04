@@ -14,9 +14,9 @@ const (
 // Kinds of streams
 const (
 	SAMPLE StreamType = iota // internet resources for monitor self checks
-	HTTP                     //
-	HLS
-	HDS
+	HTTP                     // "plain" HTTP
+	HLS                      // Apple HTTP Live Streaming
+	HDS                      // Adobe HTTP Dynamic Streaming
 )
 
 // Error codes (ordered by errors importance).
@@ -45,6 +45,7 @@ const (
 const (
 	STOP Command = iota
 	START
+	RELOAD // reread config
 )
 
 type StreamType uint // Type of checked streams

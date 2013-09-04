@@ -81,6 +81,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		Cfg.GroupsHLS = make(map[string]string)
 		Cfg.GroupsHTTP = make(map[string]string)
 		Cfg.Params = cfg.Params
+		Cfg.Samples = cfg.Samples
 		Cfg.GroupParams = map[string]Params{}
 		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
 		for groupName, streamList := range cfg.StreamsHLS {
