@@ -2,7 +2,7 @@
 package main
 
 import (
-	"io"
+	//	"io"
 	"net/http"
 	"time"
 )
@@ -80,10 +80,10 @@ type TaskResult struct {
 	HTTPStatus    string // HTTP status string
 	ContentLength int64
 	Headers       http.Header
-	Body          io.ReadCloser
-	Started       time.Time
-	Elapsed       time.Duration
-	TotalErrs     uint
+	//Body          io.ReadCloser
+	Started   time.Time
+	Elapsed   time.Duration
+	TotalErrs uint
 }
 
 type StreamStats struct {

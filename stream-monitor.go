@@ -200,7 +200,7 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 	for {
 		task := <-tasks
-		result := doTask(cfg, task)
+		result := ExecHTTP(cfg, task)
 		task.ReplyTo <- *result
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
@@ -218,9 +218,9 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 
 	for {
 		task := <-tasks
-		result := doTask(cfg, task)
+		result := ExecHTTP(cfg, task)
 		if result.ErrType != CTIMEOUT && result.HTTPCode < 400 {
-			verifyHLS(cfg, task, result)
+			// verifyHLS(cfg, task, result) XXX
 			// вернуть variants и по ним передать задачи в канал CupertinoProber
 		}
 		task.ReplyTo <- *result
@@ -233,7 +233,7 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 	for {
 		task := <-tasks
-		result := doTask(cfg, task)
+		result := ExecHTTP(cfg, task)
 		task.ReplyTo <- *result
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
@@ -250,7 +250,13 @@ func MediaProber(cfg *Config, ctl *bcast.Group, taskq chan *Task) {
 }
 
 // Helper. Execute stream check task and return result with check status.
-func doTask(cfg *Config, task *Task) *TaskResult {
+func ExecHTTP(cfg *Config, task *Task) *TaskResult {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("trace dumped in ExecHTTP:", r)
+		}
+	}()
+
 	result := &TaskResult{Started: time.Now(), Elapsed: 0 * time.Second}
 	if !strings.HasPrefix(task.URI, "http://") && !strings.HasPrefix(task.URI, "https://") {
 		result.ErrType = BADURI
@@ -289,20 +295,22 @@ func doTask(cfg *Config, task *Task) *TaskResult {
 	result.HTTPStatus = resp.Status
 	result.ContentLength = resp.ContentLength
 	result.Headers = resp.Header
-	result.Body = resp.Body // TODO read?
+	//result.Body = resp.Body // TODO read?
+	resp.Body.Close()
 	return result
 }
 
 // Helper. Verify HLS specific things.
 func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
+	//XXXdefer result.Body.Close()
 	defer func() {
 		if r := recover(); r != nil {
-			//			fmt.Println("trace dumped in HLS parser:", r)
+			fmt.Println("trace dumped in HLS parser:", r)
 			result.ErrType = HLSPARSER
 		}
 	}()
 
-	playlist, listType, err := m3u8.Decode(bufio.NewReader(result.Body), false)
+	playlist, listType, err := m3u8.Decode(bufio.NewReader(nil), false) //result.Body), false) //XXX
 	if err != nil {
 		result.ErrType = BADFORMAT
 	} else {
