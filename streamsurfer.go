@@ -12,6 +12,8 @@ const (
 	VERSION = "0.X"
 )
 
+var build_date string
+
 func main() {
 	var confname = flag.String("config", "", "alternative configuration file")
 
@@ -24,7 +26,7 @@ func main() {
 		}
 	}()
 
-	fmt.Printf("Stream Surfer vers. %s\n", VERSION)
+	fmt.Printf("Stream Surfer vers. %s (build %s)\n", VERSION, build_date)
 	flag.Parse()
 
 	//cfgq := make(chan ConfigQuery, 12)

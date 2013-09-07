@@ -1,7 +1,7 @@
 SOURCES=streamsurfer.go structures.go source-loader.go stream-monitor.go http-client.go http-api.go stats.go reports.go logger.go zabbix.go helpers.go templates.go
-
+LDFLAGS=-ldflags "-X main.build_date `date -u +%Y%m%d%H%M%S`"
 streamsurfer: $(SOURCES)
-	go build $(SOURCES)
+	go build $(LDFLAGS) $(SOURCES)
 build: streamsurfer
 paxbuild: streamsurfer
 # use sudo or run as root
