@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/grafov/bcast"
 	"github.com/grafov/m3u8"
@@ -92,6 +91,14 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 	}()
 
 	task := &Task{Stream: stream, ReplyTo: make(chan TaskResult)}
+	switch streamType {
+	case HTTP:
+		task.ReadBody = false
+	case HLS, HDS:
+		task.ReadBody = true
+	default:
+		task.ReadBody = false
+	}
 	errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
 	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
 	ctlrcv := ctl.Join()
@@ -184,10 +191,10 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 		if previous != accessible {
 			if accessible {
 				ctlsnr.Send(START)
-				fmt.Println("Monitoring is started.")
+				fmt.Println("Monitoring started.")
 			} else {
 				ctlsnr.Send(STOP)
-				fmt.Println("Monitoring is stopped.")
+				fmt.Println("Monitoring stopped.")
 			}
 		}
 		previous = accessible
@@ -219,8 +226,8 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 	for {
 		task := <-tasks
 		result := ExecHTTP(cfg, task)
-		if result.ErrType != CTIMEOUT && result.HTTPCode < 400 {
-			// verifyHLS(cfg, task, result) XXX
+		if result.ErrType > ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
+			verifyHLS(cfg, task, result)
 			// вернуть variants и по ним передать задачи в канал CupertinoProber
 		}
 		task.ReplyTo <- *result
@@ -242,11 +249,9 @@ func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 // Parse and probe media chunk
 // and report time statistics and errors
 func MediaProber(cfg *Config, ctl *bcast.Group, taskq chan *Task) {
-
 	for {
 		time.Sleep(20 * time.Second)
 	}
-
 }
 
 // Helper. Execute stream check task and return result with check status.
@@ -295,22 +300,28 @@ func ExecHTTP(cfg *Config, task *Task) *TaskResult {
 	result.HTTPStatus = resp.Status
 	result.ContentLength = resp.ContentLength
 	result.Headers = resp.Header
-	//result.Body = resp.Body // TODO read?
+	if task.ReadBody {
+		result.RealContentLength, err = result.Body.ReadFrom(resp.Body)
+		if err != nil {
+			result.ErrType = BODYREAD
+		}
+	}
 	resp.Body.Close()
+	if result.RealContentLength > 0 && result.ContentLength != result.RealContentLength {
+		result.ErrType = BADLENGTH
+	}
 	return result
 }
 
 // Helper. Verify HLS specific things.
 func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
-	//XXXdefer result.Body.Close()
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("trace dumped in HLS parser:", r)
 			result.ErrType = HLSPARSER
 		}
 	}()
-
-	playlist, listType, err := m3u8.Decode(bufio.NewReader(nil), false) //result.Body), false) //XXX
+	playlist, listType, err := m3u8.Decode(result.Body, false)
 	if err != nil {
 		result.ErrType = BADFORMAT
 	} else {

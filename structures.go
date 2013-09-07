@@ -2,7 +2,7 @@
 package main
 
 import (
-	//	"io"
+	"bytes"
 	"net/http"
 	"time"
 )
@@ -23,17 +23,19 @@ const (
 // If several errors detected then only one with the heaviest weight reported.
 const (
 	SUCCESS        ErrType = iota
-	DEBUG_LEVEL            // internal debug messages follow below:
+	DEBUG_LEVEL            // Internal debug messages follow below:
 	HLSPARSER              // HLS parser error (debug)
 	BADREQUEST             // Request failed (internal client error)
-	WARNING_LEVEL          // warnings follow below:
+	WARNING_LEVEL          // Warnings follow below:
 	SLOW                   // SlowWarning threshold on reading server response
 	VERYSLOW               // VerySlowWarning threshold on reading server response
-	ERROR_LEVEL            // errors follow below:
+	ERROR_LEVEL            // Errors follow below:
 	RTIMEOUT               // Timeout on read
 	CTIMEOUT               // Timeout on connect
-	CRITICAL_LEVEL         // permanent errors level
-	REFUSED                // connectin refused
+	BADLENGTH              // ContentLength value not equal real content length
+	BODYREAD               // Response body read error
+	CRITICAL_LEVEL         // Permanent errors level
+	REFUSED                // Connectin refused
 	BADSTATUS              // HTTP Status >= 400
 	BADURI                 // Incorret URI format
 	LISTEMPTY              // HLS specific (by m3u8 lib)
@@ -62,7 +64,8 @@ type Stream struct {
 // Stream checking task
 type Task struct {
 	Stream
-	ReplyTo chan TaskResult
+	ReadBody bool
+	ReplyTo  chan TaskResult
 }
 
 // Stream group
@@ -75,15 +78,16 @@ type GroupTask struct {
 
 // Stream checking result
 type TaskResult struct {
-	ErrType       ErrType
-	HTTPCode      int    // HTTP status code
-	HTTPStatus    string // HTTP status string
-	ContentLength int64
-	Headers       http.Header
-	//Body          io.ReadCloser
-	Started   time.Time
-	Elapsed   time.Duration
-	TotalErrs uint
+	ErrType           ErrType
+	HTTPCode          int    // HTTP status code
+	HTTPStatus        string // HTTP status string
+	ContentLength     int64
+	RealContentLength int64
+	Headers           http.Header
+	Body              bytes.Buffer
+	Started           time.Time
+	Elapsed           time.Duration
+	TotalErrs         uint
 }
 
 type StreamStats struct {
