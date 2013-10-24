@@ -1,6 +1,8 @@
+// Stream parsers and keepers.
 package main
 
 import (
+	"expvar"
 	"fmt"
 	"github.com/grafov/bcast"
 	"github.com/grafov/m3u8"
@@ -13,72 +15,93 @@ import (
 // Run monitors for each stream.
 func StreamMonitor(cfg *Config) {
 	var i uint
+	var debugvars = expvar.NewMap("streams")
+	var requestedTasks = expvar.NewInt("requested-tasks")
+	var executedHLSTasks = expvar.NewInt("hls-tasks-done")
+	var executedHDSTasks = expvar.NewInt("hds-tasks-done")
+	var executedHTTPTasks = expvar.NewInt("http-tasks-done")
 
+	debugvars.Set("requested-tasks", requestedTasks)
+	debugvars.Set("hls-tasks-done", executedHLSTasks)
+	debugvars.Set("hds-tasks-done", executedHDSTasks)
+	debugvars.Set("http-tasks-done", executedHTTPTasks)
+
+	// channels for different task types
 	httptasks := make(chan *Task, len(cfg.StreamsHTTP)*4)
 	hlstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
 	hdstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
 	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHDS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
-	ctl := bcast.NewGroup()
 
+	ctl := bcast.NewGroup()
 	go ctl.Broadcasting(0)
 	go Heartbeat(cfg, ctl)
 
 	for i = 0; i < cfg.Params.ProbersHLS; i++ {
-		go CupertinoProber(cfg, ctl, hlstasks)
+		go CupertinoProber(cfg, ctl, hlstasks, debugvars)
 	}
 	if cfg.Params.ProbersHLS > 0 {
 		fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
 	}
 
 	for i = 0; i < cfg.Params.ProbersHDS; i++ {
-		go SanjoseProber(cfg, ctl, hdstasks)
+		go SanjoseProber(cfg, ctl, hdstasks, debugvars)
 	}
 	if cfg.Params.ProbersHDS > 0 {
 		fmt.Printf("%d HDS probers started.\n", cfg.Params.ProbersHDS)
 	}
 
 	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
-		go SimpleProber(cfg, ctl, httptasks)
+		go SimpleProber(cfg, ctl, httptasks, debugvars)
 	}
 	if cfg.Params.ProbersHTTP > 0 {
 		fmt.Printf("%d HTTP probers started.\n", cfg.Params.ProbersHTTP)
 	}
 
 	for i = 0; i < cfg.Params.MediaProbers; i++ {
-		go MediaProber(cfg, ctl, chunktasks)
+		go MediaProber(cfg, ctl, HLS, chunktasks, debugvars)
 	}
 	if cfg.Params.MediaProbers > 0 {
-		fmt.Printf("%d media probers started.\n", cfg.Params.MediaProbers)
+		fmt.Printf("%d media probers for HLS started.\n", cfg.Params.MediaProbers)
+	}
+
+	for i = 0; i < cfg.Params.MediaProbers; i++ {
+		go MediaProber(cfg, ctl, HDS, chunktasks, debugvars)
+	}
+	if cfg.Params.MediaProbers > 0 {
+		fmt.Printf("%d media probers for HDS started.\n", cfg.Params.MediaProbers)
 	}
 
 	for _, group := range cfg.GroupsHLS {
-		go GroupBox(cfg, ctl, group, HLS, hlstasks)
+		go GroupBox(cfg, ctl, group, HLS, hlstasks, debugvars)
 	}
 
 	for _, group := range cfg.GroupsHTTP {
-		go GroupBox(cfg, ctl, group, HTTP, httptasks)
+		go GroupBox(cfg, ctl, group, HTTP, httptasks, debugvars)
 	}
 
 	for _, stream := range cfg.StreamsHLS {
-		go StreamBox(cfg, ctl, stream, HLS, hlstasks)
+		go StreamBox(cfg, ctl, stream, HLS, hlstasks, debugvars)
 	}
 	if len(cfg.StreamsHLS) > 0 {
-		fmt.Printf("%d HLS monitors started.\n", len(cfg.StreamsHLS))
+		StatsGlobals.TotalHLSMonitoringPoints = len(cfg.StreamsHLS)
+		fmt.Printf("%d HLS monitors started.\n", StatsGlobals.TotalHLSMonitoringPoints)
 	}
 
 	for _, stream := range cfg.StreamsHTTP {
-		go StreamBox(cfg, ctl, stream, HTTP, httptasks)
+		go StreamBox(cfg, ctl, stream, HTTP, httptasks, debugvars)
 	}
 	if len(cfg.StreamsHTTP) > 0 {
-		fmt.Printf("%d HTTP monitors started.\n", len(cfg.StreamsHTTP))
+		StatsGlobals.TotalHTTPMonitoringPoints = len(cfg.StreamsHTTP)
+		fmt.Printf("%d HTTP monitors started.\n", StatsGlobals.TotalHTTPMonitoringPoints)
 	}
+	StatsGlobals.TotalMonitoringPoints = len(cfg.StreamsHTTP) + len(cfg.StreamsHLS) + len(cfg.StreamsHDS)
 }
 
-func GroupBox(cfg *Config, ctl *bcast.Group, group string, streamType StreamType, taskq chan *Task) {
+func GroupBox(cfg *Config, ctl *bcast.Group, group string, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 }
 
 // Container incapsulates data and logic about single stream checks.
-func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task) {
+func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 	var addSleepToBrokenStream time.Duration
 	var min, max int
 	var command Command
@@ -90,7 +113,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 		}
 	}()
 
-	task := &Task{Stream: stream, ReplyTo: make(chan TaskResult)}
+	task := &Task{Stream: stream, ReplyTo: make(chan Result)}
 	switch streamType {
 	case HTTP:
 		task.ReadBody = false
@@ -103,7 +126,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
 	ctlrcv := ctl.Join()
 
-	go Report(stream, &TaskResult{})
+	go Report(stream, &Result{})
 
 	for {
 		select {
@@ -123,7 +146,17 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 				continue
 			}
 			taskq <- task
+			debugvars.Add("requested-tasks", 1)
 			result := <-task.ReplyTo
+			/*			switch result.Meta.(type) {
+						case MetaHLS:
+							// сформировать таск для чанклистов
+							// taskq <- task
+							// result := <-task.ReplyTo
+						case MetaHDS:
+						default:
+						}
+			*/
 			curhour := result.Started.Format("06010215")
 			prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
 			errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
@@ -166,9 +199,10 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 	}
 }
 
-// Check & report internet availability
+// Check & report internet availability. Stop all probers when sample internet resources not available.
+// Refs to config option ``samples``.
 func Heartbeat(cfg *Config, ctl *bcast.Group) {
-	var accessible, previous bool
+	var previous bool
 
 	ctlsnr := ctl.Join()
 
@@ -178,37 +212,38 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 			req, err := http.NewRequest("HEAD", uri, nil)
 			if err != nil {
 				fmt.Println("Internet not available. All checks stopped.")
-				accessible = false
+				StatsGlobals.MonitoringState = false
 				continue
 			}
 			_, err = client.Do(req)
 			if err != nil {
-				accessible = false
+				StatsGlobals.MonitoringState = false
 				continue
 			}
-			accessible = true
+			StatsGlobals.MonitoringState = true
 		}
-		if previous != accessible {
-			if accessible {
+		if previous != StatsGlobals.MonitoringState {
+			if StatsGlobals.MonitoringState {
 				ctlsnr.Send(START)
-				fmt.Println("Monitoring started.")
+				fmt.Println("Internet Ok. Monitoring started.")
 			} else {
 				ctlsnr.Send(STOP)
-				fmt.Println("Monitoring stopped.")
+				fmt.Println("Internet not available. Monitoring stopped.")
 			}
 		}
-		previous = accessible
+		previous = StatsGlobals.MonitoringState
 		time.Sleep(12 * time.Second)
 	}
 }
 
 // Probe HTTP without additional protocola parsing.
 // Report timeouts and bad statuses.
-func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
+func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	for {
 		task := <-tasks
 		result := ExecHTTP(cfg, task)
 		task.ReplyTo <- *result
+		debugvars.Add("http-tasks-done", 1)
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
@@ -216,7 +251,7 @@ func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 // HTTP Live Streaming support.
 // Parse and probe M3U8 playlists (multi- and single bitrate)
 // and report time statistics and errors
-func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
+func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("trace dumped in Cupertino prober:", r)
@@ -227,42 +262,63 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
 		task := <-tasks
 		result := ExecHTTP(cfg, task)
 		if result.ErrType > ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
-			verifyHLS(cfg, task, result)
-			// вернуть variants и по ним передать задачи в канал CupertinoProber
+			playlist, listType, err := m3u8.Decode(result.Body, false)
+			if err != nil {
+				result.ErrType = BADFORMAT
+			} else {
+				switch listType {
+				case m3u8.MASTER:
+					/*					m := playlist.(*m3u8.MasterPlaylist)
+										for _, variant := range m.Variants {
+											task := &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
+											fmt.Printf("%v\n", task)
+											//tasks <- task
+											// XXX
+										}
+					*/
+				case m3u8.MEDIA:
+					p := playlist.(*m3u8.MediaPlaylist)
+					p.Encode().String()
+				default:
+					result.ErrType = BADFORMAT
+				}
+			}
 		}
 		task.ReplyTo <- *result
+		debugvars.Add("hls-tasks-done", 1)
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
 
 // HTTP Dynamic Streaming prober.
 // Parse and probe F4M playlists and report time statistics and errors.
-func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task) {
+func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	for {
 		task := <-tasks
 		result := ExecHTTP(cfg, task)
 		task.ReplyTo <- *result
+		debugvars.Add("hds-tasks-done", 1)
 		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
 
 // Parse and probe media chunk
 // and report time statistics and errors
-func MediaProber(cfg *Config, ctl *bcast.Group, taskq chan *Task) {
+func MediaProber(cfg *Config, ctl *bcast.Group, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 	for {
 		time.Sleep(20 * time.Second)
 	}
 }
 
 // Helper. Execute stream check task and return result with check status.
-func ExecHTTP(cfg *Config, task *Task) *TaskResult {
+func ExecHTTP(cfg *Config, task *Task) *Result {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("trace dumped in ExecHTTP:", r)
 		}
 	}()
 
-	result := &TaskResult{Started: time.Now(), Elapsed: 0 * time.Second}
+	result := &Result{Started: time.Now(), Elapsed: 0 * time.Second}
 	if !strings.HasPrefix(task.URI, "http://") && !strings.HasPrefix(task.URI, "https://") {
 		result.ErrType = BADURI
 		result.HTTPCode = 0
@@ -314,26 +370,11 @@ func ExecHTTP(cfg *Config, task *Task) *TaskResult {
 }
 
 // Helper. Verify HLS specific things.
-func verifyHLS(cfg *Config, task *Task, result *TaskResult) {
+func verifyHLS(cfg *Config, task *Task, result *Result) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("trace dumped in HLS parser:", r)
 			result.ErrType = HLSPARSER
 		}
 	}()
-	playlist, listType, err := m3u8.Decode(result.Body, false)
-	if err != nil {
-		result.ErrType = BADFORMAT
-	} else {
-		switch listType {
-		case m3u8.MASTER:
-			m := playlist.(*m3u8.MasterPlaylist)
-			m.Encode().String()
-		case m3u8.MEDIA:
-			p := playlist.(*m3u8.MediaPlaylist)
-			p.Encode().String()
-		default:
-			result.ErrType = BADFORMAT
-		}
-	}
 }

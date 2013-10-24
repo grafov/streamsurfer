@@ -3,12 +3,13 @@ package main
 
 import (
 	"bytes"
+	"github.com/grafov/m3u8"
 	"net/http"
 	"time"
 )
 
 const (
-	SERVER = "HLS Probe II"
+	SERVER = "Stream Surfer"
 )
 
 // Kinds of streams
@@ -65,7 +66,15 @@ type Stream struct {
 type Task struct {
 	Stream
 	ReadBody bool
-	ReplyTo  chan TaskResult
+	ReplyTo  chan Result
+}
+
+type VariantTask struct {
+	Task
+}
+
+type ChunkTask struct {
+	Task
 }
 
 // Stream group
@@ -73,11 +82,11 @@ type GroupTask struct {
 	Type    StreamType
 	Name    string
 	Tasks   *Task
-	ReplyTo chan TaskResult
+	ReplyTo chan Result
 }
 
 // Stream checking result
-type TaskResult struct {
+type Result struct {
 	ErrType           ErrType
 	HTTPCode          int    // HTTP status code
 	HTTPStatus        string // HTTP status string
@@ -88,11 +97,22 @@ type TaskResult struct {
 	Started           time.Time
 	Elapsed           time.Duration
 	TotalErrs         uint
+	Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
+}
+
+type MetaHLS struct {
+	ListType  m3u8.ListType // type of analyzed playlist
+	DeepLinks []string      // sublists for analysis
+}
+
+type MetaHDS struct {
+	ListType  m3u8.ListType // XXX type of analyzed playlist
+	DeepLinks []string      // sublists for analysis
 }
 
 type StreamStats struct {
 	Stream Stream
-	Last   TaskResult
+	Last   Result
 }
 
 type ErrHistoryKey struct {
@@ -107,4 +127,10 @@ type ErrTotalHistoryKey struct {
 	Curhour string
 	Group   string
 	Name    string
+}
+
+// Values for the webpage
+type PageValues struct {
+	Title string
+	Data  interface{}
 }

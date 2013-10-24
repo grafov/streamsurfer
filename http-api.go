@@ -1,7 +1,8 @@
-// HTTP API to control probe service for representing collected data
+// HTTP API to control probe service for representing collected data.
 package main
 
 import (
+	"expvar"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 // Elder.
 func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()
+	r.HandleFunc("/debug", expvarHandler)
 	r.HandleFunc("/", rootAPI)
 	r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
 	r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
@@ -36,7 +38,9 @@ func HttpAPI(cfg *Config) {
 
 func rootAPI(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
-	res.Write([]byte("HLS Probe at service."))
+	if err := IndexPageTemplate.Execute(res, PageValues{Stubs.Name, StatsGlobals}); err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func rprtMainPage(res http.ResponseWriter, req *http.Request) {
@@ -96,4 +100,18 @@ func zabbixDiscovery(cfg *Config) func(http.ResponseWriter, *http.Request) {
 		res.Header().Set("Server", SERVER)
 		res.Write(ZabbixDiscoveryWeb(cfg, mux.Vars(req)))
 	}
+}
+
+func expvarHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	fmt.Fprintf(w, "{\n")
+	first := true
+	expvar.Do(func(kv expvar.KeyValue) {
+		if !first {
+			fmt.Fprintf(w, ",\n")
+		}
+		first = false
+		fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
+	})
+	fmt.Fprintf(w, "\n}\n")
 }

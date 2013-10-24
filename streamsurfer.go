@@ -13,9 +13,11 @@ const (
 )
 
 var build_date string
+var Stubs = &StubValues{}
 
 func main() {
 	var confname = flag.String("config", "", "alternative configuration file")
+	var verbose = flag.Bool("verbose", true, "verbose output of logs")
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -33,11 +35,11 @@ func main() {
 	//go SourceLoader(*config, cfgq)
 	cfg := ReadConfig(*confname)
 
-	go LogKeeper(cfg)
-	go StatKeeper(cfg)
-	go StreamMonitor(cfg)
-	go ZabbixDiscoveryFile(cfg)
-	go HttpAPI(cfg)
+	go LogKeeper(cfg, *verbose) // collect program logs and write them to file
+	go StatKeeper(cfg)          // collect probe statistics and may be queried by report builders
+	go StreamMonitor(cfg)       // probe logic
+	go ZabbixDiscoveryFile(cfg) // maintain discovery file for Zabbix
+	go HttpAPI(cfg)             // control API
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)

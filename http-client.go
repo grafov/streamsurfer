@@ -1,5 +1,6 @@
 // HTTP client with timeouts.
-// Taken from https://gist.github.com/dmichael/5710968
+// Client from standard library lacks support of timeouts then we use this one.
+// Code taken from https://gist.github.com/dmichael/5710968
 package main
 
 import (

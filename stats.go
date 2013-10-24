@@ -12,6 +12,14 @@ var (
 	statq chan Stats
 )
 
+var StatsGlobals = struct {
+	TotalMonitoringPoints     int
+	TotalHTTPMonitoringPoints int
+	TotalHLSMonitoringPoints  int
+	TotalHDSMonitoringPoints  int
+	MonitoringState           bool // is inet available?
+}{}
+
 type Stats struct {
 	Source    string
 	Operation string
@@ -68,6 +76,6 @@ func StatKeeper(cfg *Config) {
 }
 
 // Wrapper to get reports from streams
-func Report(stream Stream, last *TaskResult) {
+func Report(stream Stream, last *Result) {
 	reports <- StreamStats{Stream: stream, Last: *last}
 }

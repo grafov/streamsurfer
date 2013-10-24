@@ -35,6 +35,7 @@ type config struct {
 	Samples        []string            `yaml:"samples"`
 	Params         Params              `yaml:"params"`
 	GroupParams    map[string]Params   `yaml:"group-params,omitempty"` // parameters per group
+	Stubs          StubValues          `yaml:"stubs"`
 }
 
 type Params struct {
@@ -64,13 +65,20 @@ type Zabbix struct {
 	StreamTemplate  string   `yaml:"stream-template,omitempty"`
 }
 
+// custom values for HTML-templates and reports
+type StubValues struct {
+	Name string `yaml:"name,omitempty"`
+}
+
 func ReadConfig(confile string) (Cfg *Config) {
 	var cfg = &config{}
 
+	// Hardcoded defaults:
+	cfg.Stubs = StubValues{Name: "Stream Surfer"}
+	// Final config:
 	Cfg = &Config{}
-	// TODO второй конфиг из /etc/hlsproberc
 	if confile == "" {
-		confile = "~/.hlsproberc"
+		confile = "/etc/streamsurfer/default.yaml"
 	}
 	data, e := ioutil.ReadFile(FullPath(confile))
 	if e == nil {
@@ -84,6 +92,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		Cfg.Samples = cfg.Samples
 		Cfg.GroupParams = map[string]Params{}
 		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
+		Stubs = &cfg.Stubs
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName

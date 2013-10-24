@@ -1,4 +1,4 @@
-// Everything loggingp
+// Everything logging
 package main
 
 import (
@@ -20,12 +20,12 @@ const (
 type LogMessage struct {
 	Severity Severity
 	Stream
-	TaskResult
+	Result
 }
 
 type Severity uint
 
-func LogKeeper(cfg *Config) {
+func LogKeeper(cfg *Config, verbose bool) {
 	var skip error
 	var logw *bufio.Writer
 
@@ -63,7 +63,7 @@ func LogKeeper(cfg *Config) {
 					logw.WriteString("error")
 				}
 				logw.WriteString(": ")
-				logw.WriteString(StreamErrText(msg.TaskResult.ErrType))
+				logw.WriteString(StreamErrText(msg.Result.ErrType))
 				logw.WriteRune(' ')
 				logw.WriteString(strconv.Itoa(msg.HTTPCode))
 				logw.WriteRune(' ')
@@ -84,6 +84,6 @@ func LogKeeper(cfg *Config) {
 	}
 }
 
-func Log(severity Severity, stream Stream, taskres TaskResult) {
-	logq <- LogMessage{Severity: severity, Stream: stream, TaskResult: taskres}
+func Log(severity Severity, stream Stream, taskres Result) {
+	logq <- LogMessage{Severity: severity, Stream: stream, Result: taskres}
 }

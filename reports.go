@@ -3,7 +3,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/hoisie/mustache"
+	"github.com/hoisie/mustache" // TODO migrate back to native golang templates
 	"strconv"
 	"time"
 )
