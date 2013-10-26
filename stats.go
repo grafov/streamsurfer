@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	logq  chan LogMessage
-	statq chan Stats
+	logq chan LogMessage
+	//statq chan Stats
 )
 
 var StatsGlobals = struct {
@@ -20,7 +20,7 @@ var StatsGlobals = struct {
 	MonitoringState           bool // is inet available?
 }{}
 
-type Stats struct {
+type StatsKey struct { // unused yet
 	Source    string
 	Operation string
 	Started   time.Time
@@ -48,7 +48,7 @@ var ErrTotalHistory = struct {
 // Elder
 func StatKeeper(cfg *Config) {
 	//	statq := make(chan Stats, 1024)
-	reports = make(chan StreamStats, 4096)
+	reports = make(chan StreamStats, 8192)
 	for {
 		select {
 		//case stat := <-statq:
