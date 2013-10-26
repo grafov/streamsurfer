@@ -12,8 +12,8 @@ import (
 // Elder.
 func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()
-	r.HandleFunc("/debug", expvarHandler)
-	r.HandleFunc("/", rootAPI)
+	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
+	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
 	r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
 	r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
 	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
@@ -25,8 +25,10 @@ func HttpAPI(cfg *Config) {
 	r.HandleFunc("/zabbix/g/{group}", zabbixStatus).Methods("GET", "HEAD")                   // text report for selected group to Zabbix
 	r.HandleFunc("/zabbix/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD")           // discovery data for Zabbix for all groups
 	r.HandleFunc("/zabbix/g/{group}/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for selected group
+	// static and client side
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
+	r.Handle("/{{name}}.png", http.FileServer(http.Dir("pics"))).Methods("GET")
 	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.Params.ListenHTTP,

@@ -1,4 +1,4 @@
-// Load configuration
+// Load configuration file.
 package main
 
 import (
@@ -20,6 +20,7 @@ type Config struct {
 	GroupsHLS   map[string]string // map[group]group
 	GroupsHDS   map[string]string // map[group]group
 	GroupsHTTP  map[string]string // map[group]group
+	Groups      map[Group]string
 	Samples     []string
 	Params      Params
 	GroupParams map[string]Params
@@ -86,6 +87,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		if e != nil {
 			print("Config file parsing failed. Hardcoded defaults used.\n")
 		}
+		Cfg.Groups = make(map[Group]string) // TODO свести использование к Cfg.Groups, убрать GroupsHLS, GroupsHDS, GroupsHTTP
 		Cfg.GroupsHLS = make(map[string]string)
 		Cfg.GroupsHTTP = make(map[string]string)
 		Cfg.Params = cfg.Params
@@ -96,14 +98,17 @@ func ReadConfig(confile string) (Cfg *Config) {
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName
+			Cfg.Groups[Group{HLS, groupName}] = groupName
 		}
 		for groupName, streamList := range cfg.StreamsHDS {
 			addLocalConfig(&Cfg.StreamsHDS, HDS, groupName, streamList)
 			Cfg.GroupsHDS[groupName] = groupName
+			Cfg.Groups[Group{HDS, groupName}] = groupName
 		}
 		for groupName, streamList := range cfg.StreamsHTTP {
 			addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
 			Cfg.GroupsHTTP[groupName] = groupName
+			Cfg.Groups[Group{HTTP, groupName}] = groupName
 		}
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
@@ -119,6 +124,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 					fmt.Printf("Load remote config for group \"%s\" (HLS) failed.\n", groupName)
 				} else {
 					Cfg.GroupsHLS[groupName] = groupName
+					Cfg.Groups[Group{HLS, groupName}] = groupName
 				}
 			}
 		}
@@ -136,9 +142,11 @@ func ReadConfig(confile string) (Cfg *Config) {
 					fmt.Printf("Load remote config for group \"%s\" (HTTP) failed.\n", groupName)
 				} else {
 					Cfg.GroupsHTTP[groupName] = groupName
+					Cfg.Groups[Group{HTTP, groupName}] = groupName
 				}
 			}
 		}
+
 		for group, groupParams := range cfg.GroupParams {
 			if groupParams.ProbersHLS == 0 {
 				groupParams.ProbersHLS = cfg.Params.ProbersHLS

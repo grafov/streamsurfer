@@ -3,6 +3,7 @@
 package main
 
 import (
+	"expvar"
 	"sync"
 	"time"
 )
@@ -20,14 +21,7 @@ var StatsGlobals = struct {
 	MonitoringState           bool // is inet available?
 }{}
 
-type StatsKey struct { // unused yet
-	Source    string
-	Operation string
-	Started   time.Time
-	Elapsed   time.Duration
-}
-
-var reports chan StreamStats
+var statq chan StreamStats
 
 // Streams statistics
 var ReportedStreams = struct {
@@ -47,13 +41,29 @@ var ErrTotalHistory = struct {
 
 // Elder
 func StatKeeper(cfg *Config) {
-	//	statq := make(chan Stats, 1024)
-	reports = make(chan StreamStats, 8192)
+	var storedStats = expvar.NewInt("stored-stats")
+	var oldestStoredTime time.Time
+
+	statq = make(chan StreamStats, 8192) // receive stats
+	stats := make(map[StatKey]Result)    // global statistics with timestamps aligned to minutes
+
+	timer := make(chan time.Time)
+	go func() {
+		// storage maintainance period
+		time.Tick(1 * time.Minute)
+	}()
+
 	for {
 		select {
-		//case stat := <-statq:
-		// pass
-		case state := <-reports:
+		case state := <-statq: // receive new statitics data for saving
+			alignedToMinute := state.Last.Started.Truncate(time.Minute)
+			stats[StatKey{state.Stream, alignedToMinute}] = state.Last
+			if oldestStoredTime.After(alignedToMinute) {
+				oldestStoredTime = alignedToMinute
+			}
+			storedStats.Add(1)
+
+			// Дальше устаревшая статистика, надо выпилить
 			// Last check results for all streams
 			ReportedStreams.Lock()
 			if _, exists := ReportedStreams.data[state.Stream.Group]; !exists {
@@ -71,11 +81,14 @@ func StatKeeper(cfg *Config) {
 				ErrTotalHistory.count[ErrTotalHistoryKey{curhour, state.Stream.Group, state.Stream.Name}]++
 				ErrTotalHistory.Unlock()
 			}
+
+		case <-timer: // cleanup old history entries
+
 		}
 	}
 }
 
-// Wrapper to get reports from streams
-func Report(stream Stream, last *Result) {
-	reports <- StreamStats{Stream: stream, Last: *last}
+// Put result of probe task to statistics.
+func SaveStats(stream Stream, last *Result) {
+	statq <- StreamStats{Stream: stream, Last: *last}
 }

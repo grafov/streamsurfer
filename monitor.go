@@ -126,7 +126,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
 	ctlrcv := ctl.Join()
 
-	go Report(stream, &Result{})
+	go SaveStats(stream, &Result{})
 
 	for {
 		select {
@@ -179,7 +179,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 			}
 			result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
 
-			go Report(stream, &result)
+			go SaveStats(stream, &result)
 
 			if result.ErrType >= WARNING_LEVEL {
 				go Log(ERROR, stream, result)
@@ -237,7 +237,7 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 }
 
 // Probe HTTP without additional protocola parsing.
-// Report timeouts and bad statuses.
+// SaveStats timeouts and bad statuses.
 func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	for {
 		task := <-tasks
@@ -336,6 +336,7 @@ func ExecHTTP(cfg *Config, task *Task) *Result {
 		result.ContentLength = -1
 		return result
 	}
+	req.Header.Set("User-Agent", SURFER)
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {

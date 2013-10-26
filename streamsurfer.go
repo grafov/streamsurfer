@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	SURFER  = "Stream Surfer v0.1-dev"
 	VERSION = "0.X"
 )
 

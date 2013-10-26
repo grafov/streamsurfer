@@ -1,4 +1,4 @@
-SOURCES=streamsurfer.go structures.go source-loader.go stream-monitor.go http-client.go http-api.go stats.go reports.go logger.go zabbix.go helpers.go templates.go
+SOURCES=streamsurfer.go structures.go source-loader.go monitor.go http-client.go http-api.go stats.go reports.go logger.go zabbix.go helpers.go templates.go
 HTML=html/*.html
 LDFLAGS="-X main.build_date `date -u +%Y%m%d%H%M%S`"
 

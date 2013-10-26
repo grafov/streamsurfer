@@ -55,6 +55,11 @@ type StreamType uint // Type of checked streams
 type ErrType uint
 type Command uint
 
+type Group struct {
+	Type StreamType
+	Name string
+}
+
 type Stream struct {
 	URI   string
 	Type  StreamType
@@ -108,6 +113,11 @@ type MetaHLS struct {
 type MetaHDS struct {
 	ListType  m3u8.ListType // XXX type of analyzed playlist
 	DeepLinks []string      // sublists for analysis
+}
+
+type StatKey struct {
+	Stream
+	Date time.Time
 }
 
 type StreamStats struct {
