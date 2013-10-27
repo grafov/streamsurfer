@@ -116,8 +116,10 @@ type MetaHDS struct {
 }
 
 type StatKey struct {
-	Stream
-	Date time.Time
+	Type  StreamType
+	Group string
+	Name  string
+	Date  time.Time
 }
 
 type StreamStats struct {

@@ -57,7 +57,7 @@ func StatKeeper(cfg *Config) {
 		select {
 		case state := <-statq: // receive new statitics data for saving
 			alignedToMinute := state.Last.Started.Truncate(time.Minute)
-			stats[StatKey{state.Stream, alignedToMinute}] = state.Last
+			stats[StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name, alignedToMinute}] = state.Last
 			if oldestStoredTime.IsZero() {
 				oldestStoredTime = alignedToMinute
 			} else if oldestStoredTime.After(alignedToMinute) {
@@ -85,11 +85,13 @@ func StatKeeper(cfg *Config) {
 			}
 
 		case <-timer: // cleanup old history entries
-			for group, name := range cfg.Groups {
-				for min := 0; min <= 60; min++ {
-					checkTime := oldestStoredTime.Add(1 * time.Minute)
-					if _, ok := stats[StatKey{Stream{}, Date: checkTime}]; ok {
-						delete(stats, StatKey{})
+			for group, streams := range cfg.Groups {
+				for _, stream := range streams {
+					for min := 0; min <= 60; min++ {
+						checkTime := oldestStoredTime.Add(1 * time.Minute)
+						if _, ok := stats[StatKey{group.Type, group.Name, stream, checkTime}]; ok {
+							delete(stats, StatKey{})
+						}
 					}
 					oldestStoredTime = oldestStoredTime.Add(1 * time.Minute)
 				}

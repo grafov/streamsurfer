@@ -20,7 +20,7 @@ type Config struct {
 	GroupsHLS   map[string]string // map[group]group
 	GroupsHDS   map[string]string // map[group]group
 	GroupsHTTP  map[string]string // map[group]group
-	Groups      map[Group]string
+	Groups      map[Group][]string
 	Samples     []string
 	Params      Params
 	GroupParams map[string]Params
@@ -87,7 +87,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		if e != nil {
 			print("Config file parsing failed. Hardcoded defaults used.\n")
 		}
-		Cfg.Groups = make(map[Group]string) // TODO свести использование к Cfg.Groups, убрать GroupsHLS, GroupsHDS, GroupsHTTP
+		Cfg.Groups = make(map[Group][]string) // TODO свести использование к Cfg.Groups, убрать GroupsHLS, GroupsHDS, GroupsHTTP
 		Cfg.GroupsHLS = make(map[string]string)
 		Cfg.GroupsHTTP = make(map[string]string)
 		Cfg.Params = cfg.Params
@@ -98,17 +98,17 @@ func ReadConfig(confile string) (Cfg *Config) {
 		for groupName, streamList := range cfg.StreamsHLS {
 			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName
-			Cfg.Groups[Group{HLS, groupName}] = groupName
+			Cfg.Groups[Group{HLS, groupName}] = streamList
 		}
 		for groupName, streamList := range cfg.StreamsHDS {
 			addLocalConfig(&Cfg.StreamsHDS, HDS, groupName, streamList)
 			Cfg.GroupsHDS[groupName] = groupName
-			Cfg.Groups[Group{HDS, groupName}] = groupName
+			Cfg.Groups[Group{HDS, groupName}] = streamList
 		}
 		for groupName, streamList := range cfg.StreamsHTTP {
 			addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
 			Cfg.GroupsHTTP[groupName] = groupName
-			Cfg.Groups[Group{HTTP, groupName}] = groupName
+			Cfg.Groups[Group{HTTP, groupName}] = streamList
 		}
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
@@ -119,12 +119,12 @@ func ReadConfig(confile string) (Cfg *Config) {
 					remoteUser = cfg.GroupParams[groupName].User
 					remotePass = cfg.GroupParams[groupName].Pass
 				}
-				err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
+				streamList, err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
 					fmt.Printf("Load remote config for group \"%s\" (HLS) failed.\n", groupName)
 				} else {
 					Cfg.GroupsHLS[groupName] = groupName
-					Cfg.Groups[Group{HLS, groupName}] = groupName
+					Cfg.Groups[Group{HLS, groupName}] = streamList
 				}
 			}
 		}
@@ -137,12 +137,12 @@ func ReadConfig(confile string) (Cfg *Config) {
 					remoteUser = "root"  //cfg.GroupParams[groupName].User
 					remotePass = "zveri" //cfg.GroupParams[groupName].Pass
 				}
-				err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
+				streamList, err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
 					fmt.Printf("Load remote config for group \"%s\" (HTTP) failed.\n", groupName)
 				} else {
 					Cfg.GroupsHTTP[groupName] = groupName
-					Cfg.Groups[Group{HTTP, groupName}] = groupName
+					Cfg.Groups[Group{HTTP, groupName}] = streamList
 				}
 			}
 		}
@@ -219,7 +219,9 @@ func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources
 }
 
 // Helper. Get remote list of streams.
-func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, remoteUser, remotePass string) error {
+func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, remoteUser, remotePass string) ([]string, error) {
+	var streamList []string
+
 	defer func() error {
 		if r := recover(); r != nil {
 			return errors.New(fmt.Sprintf("Can't get remote config for (%s) %s %s", streamType, group, uri))
@@ -230,7 +232,7 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 	client := NewTimeoutClient(20*time.Second, 20*time.Second)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	result, err := client.Do(req)
 	if err == nil {
@@ -241,8 +243,9 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 				break
 			}
 			uri, name := splitName(line)
+			streamList = append(streamList, name)
 			*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
 		}
 	}
-	return err
+	return streamList, err
 }
