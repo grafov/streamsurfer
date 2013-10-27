@@ -58,7 +58,9 @@ func StatKeeper(cfg *Config) {
 		case state := <-statq: // receive new statitics data for saving
 			alignedToMinute := state.Last.Started.Truncate(time.Minute)
 			stats[StatKey{state.Stream, alignedToMinute}] = state.Last
-			if oldestStoredTime.After(alignedToMinute) {
+			if oldestStoredTime.IsZero() {
+				oldestStoredTime = alignedToMinute
+			} else if oldestStoredTime.After(alignedToMinute) {
 				oldestStoredTime = alignedToMinute
 			}
 			storedStats.Add(1)
@@ -83,12 +85,26 @@ func StatKeeper(cfg *Config) {
 			}
 
 		case <-timer: // cleanup old history entries
-
+			for group, name := range cfg.Groups {
+				for min := 0; min <= 60; min++ {
+					checkTime := oldestStoredTime.Add(1 * time.Minute)
+					if _, ok := stats[StatKey{Stream{}, Date: checkTime}]; ok {
+						delete(stats, StatKey{})
+					}
+					oldestStoredTime = oldestStoredTime.Add(1 * time.Minute)
+				}
+			}
 		}
 	}
+
 }
 
 // Put result of probe task to statistics.
 func SaveStats(stream Stream, last *Result) {
 	statq <- StreamStats{Stream: stream, Last: *last}
+}
+
+// Get statistics of probe tasks for the period.
+func LoadStats(group Group, stream Stream, from time.Time, to time.Time) map[StatKey]Result {
+	return nil
 }
