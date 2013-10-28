@@ -4,6 +4,7 @@ package main
 
 import (
 	"expvar"
+	"log"
 	"sync"
 	"time"
 )
@@ -47,17 +48,15 @@ func StatKeeper(cfg *Config) {
 	statq = make(chan StreamStats, 8192) // receive stats
 	stats := make(map[StatKey]Result)    // global statistics with timestamps aligned to minutes
 
-	timer := make(chan time.Time)
-	go func() {
-		// storage maintainance period
-		time.Tick(1 * time.Minute)
-	}()
+	// storage maintainance period
+	timer := time.Tick(1 * time.Second) // TODO 2 мин
 
 	for {
 		select {
 		case state := <-statq: // receive new statitics data for saving
-			alignedToMinute := state.Last.Started.Truncate(time.Minute)
+			alignedToMinute := state.Last.Started.Truncate(1 * time.Minute)
 			stats[StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name, alignedToMinute}] = state.Last
+			//log.Printf("stored %+v", StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name, alignedToMinute})
 			if oldestStoredTime.IsZero() {
 				oldestStoredTime = alignedToMinute
 			} else if oldestStoredTime.After(alignedToMinute) {
@@ -85,12 +84,19 @@ func StatKeeper(cfg *Config) {
 			}
 
 		case <-timer: // cleanup old history entries
+			log.Println("Cleanup routine entered. Cache len: ", len(stats), oldestStoredTime)
+			if len(cfg.Groups) == 0 {
+				continue
+			}
+			//log.Printf("%v\n", stats)
 			for group, streams := range cfg.Groups {
 				for _, stream := range streams {
 					for min := 0; min <= 60; min++ {
-						checkTime := oldestStoredTime.Add(1 * time.Minute)
+						checkTime := oldestStoredTime.Add(1 * time.Minute).Truncate(1 * time.Minute)
+						//						log.Printf("%+v\n", StatKey{group.Type, group.Name, stream, checkTime}, stats)
 						if _, ok := stats[StatKey{group.Type, group.Name, stream, checkTime}]; ok {
-							delete(stats, StatKey{})
+							log.Printf("%+v deleted\n", StatKey{group.Type, group.Name, stream, checkTime})
+							delete(stats, StatKey{group.Type, group.Name, stream, checkTime})
 						}
 					}
 					oldestStoredTime = oldestStoredTime.Add(1 * time.Minute)

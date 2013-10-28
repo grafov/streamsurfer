@@ -126,8 +126,6 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
 	ctlrcv := ctl.Join()
 
-	go SaveStats(stream, &Result{})
-
 	for {
 		select {
 		case recv := <-*ctlrcv.In:
@@ -148,6 +146,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 			taskq <- task
 			debugvars.Add("requested-tasks", 1)
 			result := <-task.ReplyTo
+			go SaveStats(stream, &result)
 			/*			switch result.Meta.(type) {
 						case MetaHLS:
 							// сформировать таск для чанклистов

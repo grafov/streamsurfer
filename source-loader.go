@@ -96,19 +96,19 @@ func ReadConfig(confile string) (Cfg *Config) {
 		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
 		Stubs = &cfg.Stubs
 		for groupName, streamList := range cfg.StreamsHLS {
-			addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
+			nameList := addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName
-			Cfg.Groups[Group{HLS, groupName}] = streamList
+			Cfg.Groups[Group{HLS, groupName}] = nameList
 		}
 		for groupName, streamList := range cfg.StreamsHDS {
-			addLocalConfig(&Cfg.StreamsHDS, HDS, groupName, streamList)
+			nameList := addLocalConfig(&Cfg.StreamsHDS, HDS, groupName, streamList)
 			Cfg.GroupsHDS[groupName] = groupName
-			Cfg.Groups[Group{HDS, groupName}] = streamList
+			Cfg.Groups[Group{HDS, groupName}] = nameList
 		}
 		for groupName, streamList := range cfg.StreamsHTTP {
-			addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
+			nameList := addLocalConfig(&Cfg.StreamsHTTP, HTTP, groupName, streamList)
 			Cfg.GroupsHTTP[groupName] = groupName
-			Cfg.Groups[Group{HTTP, groupName}] = streamList
+			Cfg.Groups[Group{HTTP, groupName}] = nameList
 		}
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
@@ -119,12 +119,12 @@ func ReadConfig(confile string) (Cfg *Config) {
 					remoteUser = cfg.GroupParams[groupName].User
 					remotePass = cfg.GroupParams[groupName].Pass
 				}
-				streamList, err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
+				nameList, err := addRemoteConfig(&Cfg.StreamsHLS, HLS, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
 					fmt.Printf("Load remote config for group \"%s\" (HLS) failed.\n", groupName)
 				} else {
 					Cfg.GroupsHLS[groupName] = groupName
-					Cfg.Groups[Group{HLS, groupName}] = streamList
+					Cfg.Groups[Group{HLS, groupName}] = nameList
 				}
 			}
 		}
@@ -137,12 +137,12 @@ func ReadConfig(confile string) (Cfg *Config) {
 					remoteUser = "root"  //cfg.GroupParams[groupName].User
 					remotePass = "zveri" //cfg.GroupParams[groupName].Pass
 				}
-				streamList, err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
+				nameList, err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
 					fmt.Printf("Load remote config for group \"%s\" (HTTP) failed.\n", groupName)
 				} else {
 					Cfg.GroupsHTTP[groupName] = groupName
-					Cfg.Groups[Group{HTTP, groupName}] = streamList
+					Cfg.Groups[Group{HTTP, groupName}] = nameList
 				}
 			}
 		}
@@ -211,16 +211,21 @@ func splitName(source string) (uri string, name string) {
 }
 
 // Helper. Parse config of
-func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources []string) {
+func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources []string) []string {
+	var nameList []string
+
 	for _, source := range sources {
 		uri, name := splitName(source)
 		*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
+		nameList = append(nameList, name)
 	}
+
+	return nameList
 }
 
 // Helper. Get remote list of streams.
 func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, remoteUser, remotePass string) ([]string, error) {
-	var streamList []string
+	var nameList []string
 
 	defer func() error {
 		if r := recover(); r != nil {
@@ -243,9 +248,9 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 				break
 			}
 			uri, name := splitName(line)
-			streamList = append(streamList, name)
+			nameList = append(nameList, name)
 			*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
 		}
 	}
-	return streamList, err
+	return nameList, err
 }
