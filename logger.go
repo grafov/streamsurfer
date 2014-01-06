@@ -41,7 +41,7 @@ func LogKeeper(cfg *Config, verbose bool) {
 		logw = bufio.NewWriter(logf)
 		fmt.Printf("Error log: %s\n", cfg.Params.ErrorLog)
 	} else {
-		fmt.Printf("Can't create file for error log. Error logging to file skiped.")
+		println("Can't create file for error log. Error logging to file skiped.")
 	}
 
 	for {

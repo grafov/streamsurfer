@@ -42,14 +42,14 @@ var ErrTotalHistory = struct {
 
 // Elder
 func StatKeeper(cfg *Config) {
-	var storedStats = expvar.NewInt("stored-stats")
 	var oldestStoredTime time.Time
+	var debugStatsCount = expvar.NewInt("stats-count")
 
 	statq = make(chan StreamStats, 8192) // receive stats
 	stats := make(map[StatKey]Result)    // global statistics with timestamps aligned to minutes
 
 	// storage maintainance period
-	timer := time.Tick(1 * time.Second) // TODO 2 мин
+	timer := time.Tick(4 * time.Second) // TODO 2 мин
 
 	for {
 		select {
@@ -62,7 +62,7 @@ func StatKeeper(cfg *Config) {
 			} else if oldestStoredTime.After(alignedToMinute) {
 				oldestStoredTime = alignedToMinute
 			}
-			storedStats.Add(1)
+			debugStatsCount.Add(1)
 
 			// Дальше устаревшая статистика, надо выпилить
 			// Last check results for all streams
@@ -85,23 +85,24 @@ func StatKeeper(cfg *Config) {
 
 		case <-timer: // cleanup old history entries
 			log.Println("Cleanup routine entered. Cache len: ", len(stats), oldestStoredTime)
-			if len(cfg.Groups) == 0 {
-				continue
+			if len(cfg.Groups) == 0 || len(stats) == 0 {
+				goto cleanupExit
 			}
-			//log.Printf("%v\n", stats)
+			//log.Printf("%v\n", stats) XXX
 			for group, streams := range cfg.Groups {
 				for _, stream := range streams {
-					for min := 0; min <= 60; min++ {
-						checkTime := oldestStoredTime.Add(1 * time.Minute).Truncate(1 * time.Minute)
-						//						log.Printf("%+v\n", StatKey{group.Type, group.Name, stream, checkTime}, stats)
-						if _, ok := stats[StatKey{group.Type, group.Name, stream, checkTime}]; ok {
-							log.Printf("%+v deleted\n", StatKey{group.Type, group.Name, stream, checkTime})
-							delete(stats, StatKey{group.Type, group.Name, stream, checkTime})
+					for min := oldestStoredTime; min.Before(oldestStoredTime.Add(60 * time.Minute)); min.Add(1 * time.Minute) {
+						//log.Printf("00--> %+v\n", stats[StatKey{group.Type, group.Name, stream, oldestStoredTime}])
+						if _, ok := stats[StatKey{group.Type, group.Name, stream, min}]; ok {
+							log.Printf("%+v deleted.\n", StatKey{group.Type, group.Name, stream, min})
+							delete(stats, StatKey{group.Type, group.Name, stream, min})
 						}
 					}
-					oldestStoredTime = oldestStoredTime.Add(1 * time.Minute)
 				}
 			}
+			oldestStoredTime = oldestStoredTime.Add(1 * time.Minute)
+		cleanupExit:
+			log.Println("Cleanup routine exited. Cache len: ", len(stats), oldestStoredTime)
 		}
 	}
 

@@ -51,6 +51,7 @@ type Params struct {
 	SlowWarningTimeout     time.Duration `yaml:"slow-warning-timeout,omitempty"`      // sec
 	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout,omitempty"` // sec
 	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks,omitempty"`        // ms
+	TaskTTL                time.Duration `yaml:"task-ttl,omitempty"`                  // sec
 	TryOneSegment          bool          `yaml:"one-segment,omitempty"`
 	MethodHTTP             string        `yaml:"http-method,omitempty"` // GET, HEAD
 	ListenHTTP             string        `yaml:"http-api-listen,omitempty"`
@@ -134,8 +135,8 @@ func ReadConfig(confile string) (Cfg *Config) {
 				remoteUser := ""
 				remotePass := ""
 				if _, exists := cfg.GroupParams[groupName]; exists {
-					remoteUser = "root"  //cfg.GroupParams[groupName].User
-					remotePass = "zveri" //cfg.GroupParams[groupName].Pass
+					remoteUser = cfg.GroupParams[groupName].User
+					remotePass = cfg.GroupParams[groupName].Pass
 				}
 				nameList, err := addRemoteConfig(&Cfg.StreamsHTTP, HTTP, groupName, groupURI, remoteUser, remotePass)
 				if err != nil {
@@ -234,7 +235,7 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 		return nil
 	}()
 
-	client := NewTimeoutClient(20*time.Second, 20*time.Second)
+	client := NewTimeoutClient(10*time.Second, 10*time.Second)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
@@ -253,4 +254,9 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 		}
 	}
 	return nameList, err
+}
+
+// TODO Dynamic configuration without program restart.
+// Elder.
+func ConfigKeeper() {
 }

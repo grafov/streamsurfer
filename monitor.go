@@ -97,6 +97,7 @@ func StreamMonitor(cfg *Config) {
 	StatsGlobals.TotalMonitoringPoints = len(cfg.StreamsHTTP) + len(cfg.StreamsHLS) + len(cfg.StreamsHDS)
 }
 
+// Мониторинг и статистика групп потоков.
 func GroupBox(cfg *Config, ctl *bcast.Group, group string, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 }
 
@@ -113,7 +114,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 		}
 	}()
 
-	task := &Task{Stream: stream, ReplyTo: make(chan Result)}
+	task := &Task{Stream: stream, ReplyTo: make(chan Result), TTL: time.Now().Add(cfg.Params.TaskTTL)}
 	switch streamType {
 	case HTTP:
 		task.ReadBody = false
@@ -131,11 +132,11 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 		case recv := <-*ctlrcv.In:
 			command = recv.(Command)
 			switch command {
-			case START:
+			case START_MON:
 				online = true
-			case STOP:
+			case STOP_MON:
 				online = false
-			case RELOAD:
+			case RELOAD_CONFIG:
 			default:
 			}
 		default:
@@ -223,10 +224,10 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 		}
 		if previous != StatsGlobals.MonitoringState {
 			if StatsGlobals.MonitoringState {
-				ctlsnr.Send(START)
+				ctlsnr.Send(START_MON)
 				fmt.Println("Internet Ok. Monitoring started.")
 			} else {
-				ctlsnr.Send(STOP)
+				ctlsnr.Send(STOP_MON)
 				fmt.Println("Internet not available. Monitoring stopped.")
 			}
 		}
@@ -267,17 +268,17 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 			} else {
 				switch listType {
 				case m3u8.MASTER:
-					/*					m := playlist.(*m3u8.MasterPlaylist)
-										for _, variant := range m.Variants {
-											task := &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
-											fmt.Printf("%v\n", task)
-											//tasks <- task
-											// XXX
-										}
-					*/
+					m := playlist.(*m3u8.MasterPlaylist)
+					fmt.Printf(m.Encode().String())
+					for _, variant := range m.Variants {
+						task := &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
+						fmt.Printf("%v\n", task)
+						//tasks <- task
+						// XXX
+					}
 				case m3u8.MEDIA:
 					p := playlist.(*m3u8.MediaPlaylist)
-					p.Encode().String()
+					fmt.Printf(p.Encode().String())
 				default:
 					result.ErrType = BADFORMAT
 				}

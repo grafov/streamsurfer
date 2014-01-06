@@ -46,9 +46,13 @@ const (
 
 // Commands for probers.
 const (
-	STOP Command = iota
-	START
-	RELOAD // reread config
+	STOP_MON Command = iota
+	START_MON
+	RELOAD_CONFIG // TODO made dynamic stream loading and unloading
+	LOAD_GROUP
+	LOAD_STREAM
+	DROP_GROUP
+	DROP_STREAM
 )
 
 type StreamType uint // Type of checked streams
@@ -72,6 +76,7 @@ type Task struct {
 	Stream
 	ReadBody bool
 	ReplyTo  chan Result
+	TTL      time.Time // valid until the time
 }
 
 type VariantTask struct {
