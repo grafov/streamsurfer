@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -44,13 +45,12 @@ type Params struct {
 	ProbersHLS             uint          `yaml:"hls-probers,omitempty"`               // num of
 	ProbersHDS             uint          `yaml:"hds-probers,omitempty"`               // num of
 	MediaProbers           uint          `yaml:"media-probers,omitempty"`             // num of
-	CheckRepeatTime        uint          `yaml:"check-repeat-time"`                   // ms
 	CheckBrokenTime        uint          `yaml:"check-broken-time"`                   // ms
 	ConnectTimeout         time.Duration `yaml:"connect-timeout,omitempty"`           // sec
 	RWTimeout              time.Duration `yaml:"rw-timeout,omitempty"`                // sec
 	SlowWarningTimeout     time.Duration `yaml:"slow-warning-timeout,omitempty"`      // sec
 	VerySlowWarningTimeout time.Duration `yaml:"very-slow-warning-timeout,omitempty"` // sec
-	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks,omitempty"`        // ms
+	TimeBetweenTasks       time.Duration `yaml:"time-between-tasks,omitempty"`        // sec
 	TaskTTL                time.Duration `yaml:"task-ttl,omitempty"`                  // sec
 	TryOneSegment          bool          `yaml:"one-segment,omitempty"`
 	MethodHTTP             string        `yaml:"http-method,omitempty"` // GET, HEAD
@@ -158,9 +158,6 @@ func ReadConfig(confile string) (Cfg *Config) {
 			if groupParams.MediaProbers == 0 {
 				groupParams.MediaProbers = cfg.Params.MediaProbers
 			}
-			if groupParams.CheckRepeatTime == 0 {
-				groupParams.CheckRepeatTime = cfg.Params.CheckRepeatTime
-			}
 			if groupParams.CheckBrokenTime == 0 {
 				groupParams.CheckBrokenTime = cfg.Params.CheckBrokenTime
 			}
@@ -178,6 +175,9 @@ func ReadConfig(confile string) (Cfg *Config) {
 			}
 			if groupParams.TimeBetweenTasks == 0 {
 				groupParams.TimeBetweenTasks = cfg.Params.TimeBetweenTasks
+			}
+			if groupParams.TaskTTL == 0 {
+				groupParams.TaskTTL = cfg.Params.TaskTTL
 			}
 			if groupParams.TryOneSegment {
 				groupParams.TryOneSegment = cfg.Params.TryOneSegment
@@ -200,13 +200,26 @@ func ReadConfig(confile string) (Cfg *Config) {
 }
 
 // Helper. Split stream link to URI and Name parts.
+// Supported both cases: title<space>uri and uri<space>title
+// URI must be prepended by http:// or https://
 func splitName(source string) (uri string, name string) {
-	splitted := strings.SplitN(strings.TrimSpace(source), " ", 2)
-	uri = splitted[0]
-	if len(splitted) > 1 && splitted[1] != "" {
-		name = strings.TrimSpace(splitted[1])
-	} else {
-		name = strings.SplitN(strings.TrimSpace(splitted[0]), "://", 2)[1]
+	source = strings.TrimSpace(source)
+	sep := regexp.MustCompile("htt(p|ps)://")
+	loc := sep.FindStringIndex(source)
+	if loc != nil {
+		if loc[0] == 0 { // uri title
+			splitted := strings.SplitN(source, " ", 2)
+			if len(splitted) > 1 {
+				name = strings.TrimSpace(splitted[1])
+			}
+			uri = strings.TrimSpace(splitted[0])
+		} else { // title uri
+			name = strings.TrimSpace(source[0:loc[0]])
+			uri = source[loc[0]:]
+		}
+		if name == "" {
+			name = uri
+		}
 	}
 	return
 }

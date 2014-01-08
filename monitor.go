@@ -17,19 +17,38 @@ func StreamMonitor(cfg *Config) {
 	var i uint
 	var debugvars = expvar.NewMap("streams")
 	var requestedTasks = expvar.NewInt("requested-tasks")
+	var queueSizeHLSTasks = expvar.NewInt("hls-tasks-queue")
 	var executedHLSTasks = expvar.NewInt("hls-tasks-done")
+	var expiredHLSTasks = expvar.NewInt("hls-tasks-expired")
+	var queueSizeHDSTasks = expvar.NewInt("hds-tasks-queue")
 	var executedHDSTasks = expvar.NewInt("hds-tasks-done")
+	var expiredHDSTasks = expvar.NewInt("hds-tasks-expired")
+	var queueSizeHTTPTasks = expvar.NewInt("http-tasks-queue")
 	var executedHTTPTasks = expvar.NewInt("http-tasks-done")
+	var expiredHTTPTasks = expvar.NewInt("http-tasks-expired")
+	var queueSizeWVTasks = expvar.NewInt("wv-tasks-queue")
+	var executedWVTasks = expvar.NewInt("wv-tasks-done")
+	var expiredWVTasks = expvar.NewInt("wv-tasks-expired")
 
 	debugvars.Set("requested-tasks", requestedTasks)
+	debugvars.Set("hls-tasks-queue", queueSizeHLSTasks)
 	debugvars.Set("hls-tasks-done", executedHLSTasks)
+	debugvars.Set("hls-tasks-expired", expiredHLSTasks)
+	debugvars.Set("hds-tasks-queue", queueSizeHDSTasks)
 	debugvars.Set("hds-tasks-done", executedHDSTasks)
+	debugvars.Set("hds-tasks-expired", expiredHDSTasks)
+	debugvars.Set("http-tasks-queue", queueSizeHTTPTasks)
 	debugvars.Set("http-tasks-done", executedHTTPTasks)
+	debugvars.Set("http-tasks-expired", expiredHTTPTasks)
+	debugvars.Set("wv-tasks-queue", queueSizeWVTasks)
+	debugvars.Set("wv-tasks-done", executedWVTasks)
+	debugvars.Set("wv-tasks-expired", expiredWVTasks)
 
 	// channels for different task types
-	httptasks := make(chan *Task, len(cfg.StreamsHTTP)*4)
-	hlstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
-	hdstasks := make(chan *Task, len(cfg.StreamsHLS)*4)
+	httptasks := make(chan *Task) //, len(cfg.StreamsHTTP)*2)
+	hlstasks := make(chan *Task)  //, len(cfg.StreamsHLS)*2)
+	hdstasks := make(chan *Task)  //, len(cfg.StreamsHLS)*2)
+	//wvtasks := make(chan *Task)
 	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHDS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
 
 	ctl := bcast.NewGroup()
@@ -101,12 +120,14 @@ func StreamMonitor(cfg *Config) {
 func GroupBox(cfg *Config, ctl *bcast.Group, group string, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 }
 
-// Container incapsulates data and logic about single stream checks.
+// Container keep single stream properties and regulary make tasks for appropriate probers.
 func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
+	var checkCount uint64 // число прошедших проверок
 	var addSleepToBrokenStream time.Duration
 	var min, max int
 	var command Command
 	var online bool = false
+	//	var queueLimit uint
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -114,18 +135,26 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 		}
 	}()
 
-	task := &Task{Stream: stream, ReplyTo: make(chan Result), TTL: time.Now().Add(cfg.Params.TaskTTL)}
+	task := &Task{Stream: stream, ReplyTo: make(chan Result)}
 	switch streamType {
 	case HTTP:
 		task.ReadBody = false
-	case HLS, HDS:
+	//	queueLimit = cfg.Params.ProbersHTTP
+	case HLS:
 		task.ReadBody = true
+		// queueLimit = cfg.Params.ProbersHLS
+	case HDS:
+		task.ReadBody = true
+		// queueLimit = cfg.Params.ProbersHDS
+	case WV:
+		task.ReadBody = false
 	default:
 		task.ReadBody = false
+		// queueLimit = 42 // XXX
 	}
 	errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
 	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
-	ctlrcv := ctl.Join()
+	ctlrcv := ctl.Join()                           // управление мониторингом
 
 	for {
 		select {
@@ -136,27 +165,35 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 				online = true
 			case STOP_MON:
 				online = false
-			case RELOAD_CONFIG:
-			default:
 			}
 		default:
 			if !online {
-				time.Sleep(50 * time.Millisecond)
+				time.Sleep(1 * time.Second)
 				continue
 			}
+			// if uint(len(taskq)) > 1 {
+			// 	time.Sleep(cfg.Params.TimeBetweenTasks/2*time.Second + 1*time.Second)
+			// 	continue
+			// }
+
+			max = int(cfg.Params.TimeBetweenTasks)
+			min = int(cfg.Params.TimeBetweenTasks / 4. * 3.)
+			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Second + addSleepToBrokenStream) // randomize streams order
+			task.TTL = time.Now().Add(time.Duration(cfg.Params.TaskTTL * time.Second))
 			taskq <- task
 			debugvars.Add("requested-tasks", 1)
 			result := <-task.ReplyTo
+			if result.ErrType == TTLEXPIRED {
+				continue
+			} else {
+				checkCount++
+				if checkCount > 2 {
+					fmt.Printf("Repeated %d times %s\n", checkCount, task.Name)
+				}
+			}
+
 			go SaveStats(stream, &result)
-			/*			switch result.Meta.(type) {
-						case MetaHLS:
-							// сформировать таск для чанклистов
-							// taskq <- task
-							// result := <-task.ReplyTo
-						case MetaHDS:
-						default:
-						}
-			*/
+
 			curhour := result.Started.Format("06010215")
 			prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
 			errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
@@ -166,14 +203,14 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 
 			switch {
 			// too much repeatable errors per hour:
-			case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6:
-			case errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
+			case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6, errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
 				addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
 			// permanent error, not a timeout:
-			case result.ErrType > CRITICAL_LEVEL:
+			case result.ErrType > CRITICAL_LEVEL, result.ErrType == TTLEXPIRED:
 				addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
 			// works ok:
 			case result.ErrType == SUCCESS:
+				addSleepToBrokenStream = 0
 			default:
 				addSleepToBrokenStream = 0
 			}
@@ -181,20 +218,19 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 
 			go SaveStats(stream, &result)
 
-			if result.ErrType >= WARNING_LEVEL {
-				go Log(ERROR, stream, result)
-			} else {
-				if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
-					result.ErrType = VERYSLOW
-					go Log(WARNING, stream, result)
-				} else if result.Elapsed >= cfg.Params.SlowWarningTimeout*time.Second {
-					result.ErrType = SLOW
-					go Log(WARNING, stream, result)
+			if result.ErrType != TTLEXPIRED {
+				if result.ErrType >= WARNING_LEVEL {
+					go Log(ERROR, stream, result)
+				} else {
+					if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
+						result.ErrType = VERYSLOW
+						go Log(WARNING, stream, result)
+					} else if result.Elapsed >= cfg.Params.SlowWarningTimeout*time.Second {
+						result.ErrType = SLOW
+						go Log(WARNING, stream, result)
+					}
 				}
 			}
-			max = int(cfg.Params.CheckRepeatTime)
-			min = int(cfg.Params.CheckRepeatTime / 4. * 3.)
-			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Millisecond + addSleepToBrokenStream)
 		}
 	}
 }
@@ -206,9 +242,11 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 
 	ctlsnr := ctl.Join()
 
+	time.Sleep(3 * time.Second)
+
 	for {
 		for _, uri := range cfg.Samples {
-			client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
+			client := NewTimeoutClient(12*time.Second, 6*time.Second)
 			req, err := http.NewRequest("HEAD", uri, nil)
 			if err != nil {
 				fmt.Println("Internet not available. All checks stopped.")
@@ -232,19 +270,56 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 			}
 		}
 		previous = StatsGlobals.MonitoringState
-		time.Sleep(12 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 
-// Probe HTTP without additional protocola parsing.
+// Helper for expired tasks. Return result with TTL Expired status.
+func TaskExpired(cfg *Config, task *Task) *Result {
+	result := &Result{Started: time.Now(), Elapsed: 0 * time.Second}
+	result.ContentLength = -1
+	result.ErrType = TTLEXPIRED
+	return result
+}
+
+// Probe HTTP without additional protocol parsing.
 // SaveStats timeouts and bad statuses.
 func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+	var result *Result
+
 	for {
+		queueCount := debugvars.Get("http-tasks-queue")
+		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
-		result := ExecHTTP(cfg, task)
+		if time.Now().Before(task.TTL) {
+			result = ExecHTTP(cfg, task)
+			debugvars.Add("http-tasks-done", 1)
+		} else {
+			result = TaskExpired(cfg, task)
+			debugvars.Add("http-tasks-expired", 1)
+		}
 		task.ReplyTo <- *result
-		debugvars.Add("http-tasks-done", 1)
-		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
+	}
+}
+
+// TODO к реализации
+// Probe HTTP with additional checks for Widevine.
+// Really now only http-range check supported.
+func WidevineProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+	var result *Result
+
+	for {
+		queueCount := debugvars.Get("wv-tasks-queue")
+		queueCount.(*expvar.Int).Set(int64(len(tasks)))
+		task := <-tasks
+		if time.Now().Before(task.TTL) {
+			result = ExecHTTP(cfg, task)
+			debugvars.Add("wv-tasks-done", 1)
+		} else {
+			result = TaskExpired(cfg, task)
+			debugvars.Add("wv-tasks-expired", 1)
+		}
+		task.ReplyTo <- *result
 	}
 }
 
@@ -286,7 +361,7 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 		}
 		task.ReplyTo <- *result
 		debugvars.Add("hls-tasks-done", 1)
-		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
+		//time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
 
@@ -298,7 +373,7 @@ func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *e
 		result := ExecHTTP(cfg, task)
 		task.ReplyTo <- *result
 		debugvars.Add("hds-tasks-done", 1)
-		time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
+		// time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
 
@@ -379,3 +454,7 @@ func verifyHLS(cfg *Config, task *Task, result *Result) {
 		}
 	}()
 }
+
+// func RateLimiter() {
+
+// }

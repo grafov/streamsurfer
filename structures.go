@@ -18,6 +18,7 @@ const (
 	HTTP                     // "plain" HTTP
 	HLS                      // Apple HTTP Live Streaming
 	HDS                      // Adobe HTTP Dynamic Streaming
+	WV                       // Widevine VOD
 )
 
 // Error codes (ordered by errors importance).
@@ -30,6 +31,7 @@ const (
 	WARNING_LEVEL          // Warnings follow below:
 	SLOW                   // SlowWarning threshold on reading server response
 	VERYSLOW               // VerySlowWarning threshold on reading server response
+	TTLEXPIRED             // Task was not executed because task TTL expired.
 	ERROR_LEVEL            // Errors follow below:
 	RTIMEOUT               // Timeout on read
 	CTIMEOUT               // Timeout on connect

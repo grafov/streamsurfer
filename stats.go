@@ -84,7 +84,7 @@ func StatKeeper(cfg *Config) {
 			}
 
 		case <-timer: // cleanup old history entries
-			log.Println("Cleanup routine entered. Cache len: ", len(stats), oldestStoredTime)
+			// log.Println("Cleanup routine entered. Cache len: ", len(stats), oldestStoredTime)
 			if len(cfg.Groups) == 0 || len(stats) == 0 {
 				goto cleanupExit
 			}
@@ -102,7 +102,7 @@ func StatKeeper(cfg *Config) {
 			}
 			oldestStoredTime = oldestStoredTime.Add(1 * time.Minute)
 		cleanupExit:
-			log.Println("Cleanup routine exited. Cache len: ", len(stats), oldestStoredTime)
+			// log.Println("Cleanup routine exited. Cache len: ", len(stats), oldestStoredTime)
 		}
 	}
 

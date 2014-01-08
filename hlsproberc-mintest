@@ -1,4 +1,4 @@
-# mode: yaml
+# -*- mode: yaml -*-
 hls-streams:
   # Just place here URIs to variant playlists or chunklists
   - http://example.com/playlist1.m3u8

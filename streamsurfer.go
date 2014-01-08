@@ -60,6 +60,7 @@ func main() {
 
 	go LogKeeper(cfg, *verbose) // collect program logs and write them to file
 	go StatKeeper(cfg)          // collect probe statistics and may be queried by report builders
+
 	go StreamMonitor(cfg)       // probe logic
 	go ZabbixDiscoveryFile(cfg) // maintain discovery file for Zabbix
 	go HttpAPI(cfg)             // control API
