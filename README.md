@@ -1,9 +1,13 @@
 Stream Surfer
 =============
 
+**The code is experimental. Undocumented. Not completed. Though it works for me.**
+**I not recommend to use it until stable version published.**
+
 Stream Surfer — probe utiliy for HTTP video streaming. The utility detects errors in
-HTTP Live Streams (Apple HLS) and health of any HTTP resources. It may be used as
-regular monitoring tool and stress testing for mediaservers (and any HTTP-servers too).
+HTTP Streams (Apple HLS now supported) and monitor health of any HTTP resources. It may
+be used as regular monitoring tool and stress testing for mediaservers (and any
+HTTP-servers too).
 
 Features are:
 
@@ -14,27 +18,21 @@ Features are:
  * webreports to represent collected statistics
  * integration with Zabbix (http://zabbix.com) monitoring software
 
-**The code in alpha. Undocumented. Not completed. Though it works.**
-
 Planned features:
 
+ * probe more formats beside HLS (planned HDS, DASH, Widevine VOD)
  * probe chunks with `mediainfo` utility (from ffmpeg)
  * REST HTTP to represent collected data and utility control
  * aggregate and analyze statistics from other streamsurfer nodes
+ * visualize monitoring information in Web UI
  * persistent storage for statistics and reports generation
 
-This utility can't be used for HLS playback.
+This software can't be used for HLS playback.
 
-`streamsurfer` is an improved port of Python `hlsprobe` (https://github.com/grafov/hlsprobe).
+`streamsurfer` is an furfer development of Python `hlsprobe` (https://github.com/grafov/hlsprobe).
 
 Install
 -------
-
-### Use binary
-
-TODO Instructions follows later.
-
-### Build from sources
 
 You need Go language (http://golang.org) environment installed.
 Then:
@@ -65,11 +63,11 @@ Web reports available at `localhost:8088` (define listener with `http-api-listen
 Similar projects
 ----------------
 
- * https://code.google.com/p/hls-player
- * https://github.com/brookemckim/hlspider
+ * http://code.google.com/p/hls-player
+ * http://github.com/brookemckim/hlspider
 
-Project status
---------------
+Build status
+------------
 
 [![Build Status](https://travis-ci.org/grafov/hlsprobe2.png?branch=master)](https://travis-ci.org/grafov/hlsprobe2)
 

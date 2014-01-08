@@ -45,10 +45,10 @@ func StreamMonitor(cfg *Config) {
 	debugvars.Set("wv-tasks-expired", expiredWVTasks)
 
 	// channels for different task types
-	httptasks := make(chan *Task) //, len(cfg.StreamsHTTP)*2)
-	hlstasks := make(chan *Task)  //, len(cfg.StreamsHLS)*2)
-	hdstasks := make(chan *Task)  //, len(cfg.StreamsHLS)*2)
-	//wvtasks := make(chan *Task)
+	httptasks := make(chan *Task)
+	hlstasks := make(chan *Task)
+	hdstasks := make(chan *Task)
+	wvtasks := make(chan *Task)
 	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHDS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
 
 	ctl := bcast.NewGroup()
@@ -74,6 +74,13 @@ func StreamMonitor(cfg *Config) {
 	}
 	if cfg.Params.ProbersHTTP > 0 {
 		fmt.Printf("%d HTTP probers started.\n", cfg.Params.ProbersHTTP)
+	}
+
+	for i = 0; i < cfg.Params.ProbersWV; i++ {
+		go WidevineProber(cfg, ctl, wvtasks, debugvars)
+	}
+	if cfg.Params.ProbersWV > 0 {
+		fmt.Printf("%d Widevine VOD probers started.\n", cfg.Params.ProbersWV)
 	}
 
 	for i = 0; i < cfg.Params.MediaProbers; i++ {
@@ -106,6 +113,14 @@ func StreamMonitor(cfg *Config) {
 		fmt.Printf("%d HLS monitors started.\n", StatsGlobals.TotalHLSMonitoringPoints)
 	}
 
+	for _, stream := range cfg.StreamsHDS {
+		go StreamBox(cfg, ctl, stream, HDS, hdstasks, debugvars)
+	}
+	if len(cfg.StreamsHDS) > 0 {
+		StatsGlobals.TotalHLSMonitoringPoints = len(cfg.StreamsHDS)
+		fmt.Printf("%d HDS monitors started.\n", StatsGlobals.TotalHDSMonitoringPoints)
+	}
+
 	for _, stream := range cfg.StreamsHTTP {
 		go StreamBox(cfg, ctl, stream, HTTP, httptasks, debugvars)
 	}
@@ -113,6 +128,15 @@ func StreamMonitor(cfg *Config) {
 		StatsGlobals.TotalHTTPMonitoringPoints = len(cfg.StreamsHTTP)
 		fmt.Printf("%d HTTP monitors started.\n", StatsGlobals.TotalHTTPMonitoringPoints)
 	}
+
+	for _, stream := range cfg.StreamsWV {
+		go StreamBox(cfg, ctl, stream, WV, wvtasks, debugvars)
+	}
+	if len(cfg.StreamsWV) > 0 {
+		StatsGlobals.TotalWVMonitoringPoints = len(cfg.StreamsWV)
+		fmt.Printf("%d Widevine monitors started.\n", StatsGlobals.TotalWVMonitoringPoints)
+	}
+
 	StatsGlobals.TotalMonitoringPoints = len(cfg.StreamsHTTP) + len(cfg.StreamsHLS) + len(cfg.StreamsHDS)
 }
 
@@ -171,11 +195,6 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			// if uint(len(taskq)) > 1 {
-			// 	time.Sleep(cfg.Params.TimeBetweenTasks/2*time.Second + 1*time.Second)
-			// 	continue
-			// }
-
 			max = int(cfg.Params.TimeBetweenTasks)
 			min = int(cfg.Params.TimeBetweenTasks / 4. * 3.)
 			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Second + addSleepToBrokenStream) // randomize streams order
@@ -287,6 +306,12 @@ func TaskExpired(cfg *Config, task *Task) *Result {
 func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	var result *Result
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("trace dumped in HTTP prober:", r)
+		}
+	}()
+
 	for {
 		queueCount := debugvars.Get("http-tasks-queue")
 		queueCount.(*expvar.Int).Set(int64(len(tasks)))
@@ -308,6 +333,12 @@ func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *ex
 func WidevineProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	var result *Result
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("trace dumped in Widevine prober:", r)
+		}
+	}()
+
 	for {
 		queueCount := debugvars.Get("wv-tasks-queue")
 		queueCount.(*expvar.Int).Set(int64(len(tasks)))
@@ -327,41 +358,52 @@ func WidevineProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *
 // Parse and probe M3U8 playlists (multi- and single bitrate)
 // and report time statistics and errors
 func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+	var result *Result
+
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("trace dumped in Cupertino prober:", r)
+			fmt.Println("trace dumped in HLS prober:", r)
 		}
 	}()
 
 	for {
+		queueCount := debugvars.Get("hls-tasks-queue")
+		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
-		result := ExecHTTP(cfg, task)
-		if result.ErrType > ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
-			playlist, listType, err := m3u8.Decode(result.Body, false)
-			if err != nil {
-				result.ErrType = BADFORMAT
-			} else {
-				switch listType {
-				case m3u8.MASTER:
-					m := playlist.(*m3u8.MasterPlaylist)
-					fmt.Printf(m.Encode().String())
-					for _, variant := range m.Variants {
-						task := &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
-						fmt.Printf("%v\n", task)
-						//tasks <- task
-						// XXX
-					}
-				case m3u8.MEDIA:
-					p := playlist.(*m3u8.MediaPlaylist)
-					fmt.Printf(p.Encode().String())
-				default:
+
+		if time.Now().Before(task.TTL) {
+			result = ExecHTTP(cfg, task)
+			if result.ErrType > ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
+				playlist, listType, err := m3u8.Decode(result.Body, false)
+				if err != nil {
 					result.ErrType = BADFORMAT
+				} else {
+					switch listType {
+					case m3u8.MASTER:
+						m := playlist.(*m3u8.MasterPlaylist)
+						fmt.Printf(m.Encode().String())
+						for _, variant := range m.Variants {
+							task := &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
+							fmt.Printf("%v\n", task)
+							//tasks <- task
+							// XXX
+						}
+					case m3u8.MEDIA:
+						p := playlist.(*m3u8.MediaPlaylist)
+						fmt.Printf(p.Encode().String())
+					default:
+						result.ErrType = BADFORMAT
+					}
 				}
 			}
+			debugvars.Add("hls-tasks-done", 1)
+		} else {
+			result = TaskExpired(cfg, task)
+			debugvars.Add("hls-tasks-expired", 1)
 		}
+
 		task.ReplyTo <- *result
 		debugvars.Add("hls-tasks-done", 1)
-		//time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
 
@@ -373,7 +415,6 @@ func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *e
 		result := ExecHTTP(cfg, task)
 		task.ReplyTo <- *result
 		debugvars.Add("hds-tasks-done", 1)
-		// time.Sleep(cfg.Params.TimeBetweenTasks * time.Millisecond)
 	}
 }
 

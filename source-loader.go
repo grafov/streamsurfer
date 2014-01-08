@@ -18,9 +18,11 @@ type Config struct {
 	StreamsHLS  []Stream
 	StreamsHDS  []Stream
 	StreamsHTTP []Stream
+	StreamsWV   []Stream
 	GroupsHLS   map[string]string // map[group]group
 	GroupsHDS   map[string]string // map[group]group
 	GroupsHTTP  map[string]string // map[group]group
+	GroupsWV    map[string]string // map[group]group
 	Groups      map[Group][]string
 	Samples     []string
 	Params      Params
@@ -32,8 +34,11 @@ type config struct {
 	StreamsHLS     map[string][]string `yaml:"hls-streams,omitempty"`      // HLS parsing
 	StreamsHDS     map[string][]string `yaml:"hds-streams,omitempty"`      // HDS parsing
 	StreamsHTTP    map[string][]string `yaml:"http-streams,omitempty"`     // plain HTTP checks
-	GetStreamsHLS  []string            `yaml:"get-hls-streams,omitempty"`  // load remote HLS-checks configuration
-	GetStreamsHTTP []string            `yaml:"get-http-streams,omitempty"` // load remote HTTP-checks configuration
+	StreamsWV      map[string][]string `yaml:"wv-streams,omitempty"`       // HTTP checks with additional WV VOD checks
+	GetStreamsHLS  []string            `yaml:"get-hls-streams,omitempty"`  // load remote HLS checks configuration
+	GetStreamsHDS  []string            `yaml:"get-hds-streams,omitempty"`  // load remote HLS checks configuration
+	GetStreamsHTTP []string            `yaml:"get-http-streams,omitempty"` // load remote HTTP checks configuration
+	GetStreamsWV   []string            `yaml:"get-wv-streams,omitempty"`   // load remote WV VOD checks configuration
 	Samples        []string            `yaml:"samples"`
 	Params         Params              `yaml:"params"`
 	GroupParams    map[string]Params   `yaml:"group-params,omitempty"` // parameters per group
@@ -44,6 +49,7 @@ type Params struct {
 	ProbersHTTP            uint          `yaml:"http-probers,omitempty"`              // num of
 	ProbersHLS             uint          `yaml:"hls-probers,omitempty"`               // num of
 	ProbersHDS             uint          `yaml:"hds-probers,omitempty"`               // num of
+	ProbersWV              uint          `yaml:"wv-probers,omitempty"`                // num of
 	MediaProbers           uint          `yaml:"media-probers,omitempty"`             // num of
 	CheckBrokenTime        uint          `yaml:"check-broken-time"`                   // ms
 	ConnectTimeout         time.Duration `yaml:"connect-timeout,omitempty"`           // sec
@@ -90,12 +96,15 @@ func ReadConfig(confile string) (Cfg *Config) {
 		}
 		Cfg.Groups = make(map[Group][]string) // TODO свести использование к Cfg.Groups, убрать GroupsHLS, GroupsHDS, GroupsHTTP
 		Cfg.GroupsHLS = make(map[string]string)
+		Cfg.GroupsHDS = make(map[string]string)
 		Cfg.GroupsHTTP = make(map[string]string)
+		Cfg.GroupsWV = make(map[string]string)
 		Cfg.Params = cfg.Params
 		Cfg.Samples = cfg.Samples
 		Cfg.GroupParams = map[string]Params{}
 		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
 		Stubs = &cfg.Stubs
+
 		for groupName, streamList := range cfg.StreamsHLS {
 			nameList := addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
 			Cfg.GroupsHLS[groupName] = groupName
@@ -111,6 +120,13 @@ func ReadConfig(confile string) (Cfg *Config) {
 			Cfg.GroupsHTTP[groupName] = groupName
 			Cfg.Groups[Group{HTTP, groupName}] = nameList
 		}
+
+		for groupName, streamList := range cfg.StreamsWV {
+			nameList := addLocalConfig(&Cfg.StreamsWV, WV, groupName, streamList)
+			Cfg.GroupsWV[groupName] = groupName
+			Cfg.Groups[Group{WV, groupName}] = nameList
+		}
+
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
 				groupURI, groupName := splitName(source)
@@ -126,6 +142,24 @@ func ReadConfig(confile string) (Cfg *Config) {
 				} else {
 					Cfg.GroupsHLS[groupName] = groupName
 					Cfg.Groups[Group{HLS, groupName}] = nameList
+				}
+			}
+		}
+		if cfg.GetStreamsHDS != nil {
+			for _, source := range cfg.GetStreamsHDS {
+				groupURI, groupName := splitName(source)
+				remoteUser := ""
+				remotePass := ""
+				if _, exists := cfg.GroupParams[groupName]; exists {
+					remoteUser = cfg.GroupParams[groupName].User
+					remotePass = cfg.GroupParams[groupName].Pass
+				}
+				nameList, err := addRemoteConfig(&Cfg.StreamsHDS, HDS, groupName, groupURI, remoteUser, remotePass)
+				if err != nil {
+					fmt.Printf("Load remote config for group \"%s\" (HDS) failed.\n", groupName)
+				} else {
+					Cfg.GroupsHDS[groupName] = groupName
+					Cfg.Groups[Group{HDS, groupName}] = nameList
 				}
 			}
 		}
@@ -147,13 +181,37 @@ func ReadConfig(confile string) (Cfg *Config) {
 				}
 			}
 		}
+		if cfg.GetStreamsWV != nil {
+			for _, source := range cfg.GetStreamsWV {
+				groupURI, groupName := splitName(source)
+				remoteUser := ""
+				remotePass := ""
+				if _, exists := cfg.GroupParams[groupName]; exists {
+					remoteUser = cfg.GroupParams[groupName].User
+					remotePass = cfg.GroupParams[groupName].Pass
+				}
+				nameList, err := addRemoteConfig(&Cfg.StreamsWV, WV, groupName, groupURI, remoteUser, remotePass)
+				if err != nil {
+					fmt.Printf("Load remote config for group \"%s\" (WV) failed.\n", groupName)
+				} else {
+					Cfg.GroupsWV[groupName] = groupName
+					Cfg.Groups[Group{WV, groupName}] = nameList
+				}
+			}
+		}
 
 		for group, groupParams := range cfg.GroupParams {
 			if groupParams.ProbersHLS == 0 {
 				groupParams.ProbersHLS = cfg.Params.ProbersHLS
 			}
+			if groupParams.ProbersHDS == 0 {
+				groupParams.ProbersHDS = cfg.Params.ProbersHDS
+			}
 			if groupParams.ProbersHTTP == 0 {
 				groupParams.ProbersHTTP = cfg.Params.ProbersHTTP
+			}
+			if groupParams.ProbersWV == 0 {
+				groupParams.ProbersWV = cfg.Params.ProbersWV
 			}
 			if groupParams.MediaProbers == 0 {
 				groupParams.MediaProbers = cfg.Params.MediaProbers

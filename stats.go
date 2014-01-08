@@ -17,6 +17,7 @@ var (
 var StatsGlobals = struct {
 	TotalMonitoringPoints     int
 	TotalHTTPMonitoringPoints int
+	TotalWVMonitoringPoints   int
 	TotalHLSMonitoringPoints  int
 	TotalHDSMonitoringPoints  int
 	MonitoringState           bool // is inet available?
