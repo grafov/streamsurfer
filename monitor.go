@@ -370,23 +370,28 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 		queueCount := debugvars.Get("hls-tasks-queue")
 		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
-
 		if time.Now().Before(task.TTL) {
 			result = ExecHTTP(cfg, task)
-			if result.ErrType > ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
-				playlist, listType, err := m3u8.Decode(result.Body, false)
+			if result.ErrType < ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
+				playlist, listType, err := m3u8.Decode(result.Body, true)
 				if err != nil {
 					result.ErrType = BADFORMAT
 				} else {
 					switch listType {
 					case m3u8.MASTER:
+						//fmt.Printf("%+v\n", playlist)
 						m := playlist.(*m3u8.MasterPlaylist)
 						fmt.Printf(m.Encode().String())
 						for _, variant := range m.Variants {
-							task := &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
-							fmt.Printf("%v\n", task)
+							splitted := strings.Split(task.URI, "/")
+							splitted[len(splitted)-1] = variant.URI
+							suburi := strings.Join(splitted, "/")
+							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
+							subresult := ExecHTTP(cfg, subtask)
+							fmt.Printf("%s %v\n",suburi, subresult)
 							//tasks <- task
 							// XXX
+
 						}
 					case m3u8.MEDIA:
 						p := playlist.(*m3u8.MediaPlaylist)
@@ -443,7 +448,7 @@ func ExecHTTP(cfg *Config, task *Task) *Result {
 		return result
 	}
 	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
-	req, err := http.NewRequest(cfg.Params.MethodHTTP, task.URI, nil)
+	req, err := http.NewRequest(cfg.Params.MethodHTTP, task.URI, nil) // TODO разделить метод по проберам
 	if err != nil {
 		fmt.Println(err)
 		result.ErrType = BADURI
@@ -496,6 +501,7 @@ func verifyHLS(cfg *Config, task *Task, result *Result) {
 	}()
 }
 
+// Ограничивать число запросов в ед.времени на ip
 // func RateLimiter() {
 
 // }
