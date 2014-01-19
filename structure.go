@@ -110,6 +110,7 @@ type Result struct {
 	Elapsed           time.Duration
 	TotalErrs         uint
 	Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
+	SubResults        []*Result   // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
 }
 
 type MetaHLS struct {
