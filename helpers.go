@@ -89,10 +89,14 @@ func String2StreamErr(s string) ErrType {
 	switch strings.ToLower(s) {
 	case "success":
 		return SUCCESS
+	case "debug":
+		return DEBUG_LEVEL
 	case "hlsparser":
 		return HLSPARSER
 	case "badrequest":
 		return BADREQUEST
+	case "warning":
+		return WARNING_LEVEL
 	case "slow":
 		return SLOW
 	case "veryslow":
@@ -109,12 +113,16 @@ func String2StreamErr(s string) ErrType {
 		return TTLEXPIRED
 	case "rtimeout":
 		return RTIMEOUT
+	case "error":
+		return ERROR_LEVEL
 	case "ctimeout":
 		return CTIMEOUT
 	case "badlength":
 		return BADLENGTH
 	case "bodyread":
 		return BODYREAD
+	case "critical":
+		return CRITICAL_LEVEL
 	case "refused":
 		return REFUSED
 	default:

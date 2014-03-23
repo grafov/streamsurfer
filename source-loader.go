@@ -63,6 +63,7 @@ type Params struct {
 	ListenHTTP             string        `yaml:"http-api-listen,omitempty"`
 	ErrorLog               string        `yaml:"error-log,omitempty"`
 	Zabbix                 Zabbix        `yaml:"zabbix,omitempty"`
+	ParseName              string        `yaml:"parse-name,omitempty"` // regexp for alternative method of title/name parsing from the URL
 	User                   string        `yaml:"user,omitempty"`
 	Pass                   string        `yaml:"pass,omitempty"`
 }
@@ -77,6 +78,8 @@ type Zabbix struct {
 type StubValues struct {
 	Name string `yaml:"name,omitempty"`
 }
+
+var NameParseMode string // regexp for parse name/title from the stream URL, by default string splitted by space and http:// part becomes URL other part becomes stream name
 
 func ReadConfig(confile string) (Cfg *Config) {
 	var cfg = &config{}
@@ -104,6 +107,8 @@ func ReadConfig(confile string) (Cfg *Config) {
 		Cfg.GroupParams = map[string]Params{}
 		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
 		Stubs = &cfg.Stubs
+
+		NameParseMode = cfg.Params.ParseName
 
 		for groupName, streamList := range cfg.StreamsHLS {
 			nameList := addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
@@ -277,6 +282,13 @@ func splitName(source string) (uri string, name string) {
 		}
 		if name == "" {
 			name = uri
+		}
+	}
+	if NameParseMode != "" {
+		re := regexp.MustCompile(NameParseMode)
+		vals := re.FindStringSubmatch(uri)
+		if len(vals) > 1 {
+			name = vals[1]
 		}
 	}
 	return

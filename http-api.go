@@ -31,8 +31,11 @@ func HttpAPI(cfg *Config) {
 	r.HandleFunc("/zabbix-discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for all groups
 	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery(cfg)).Methods("GET")
 
+	// строковое значение ошибки для выбранных группы и канала
+	r.HandleFunc("/mon/error/{type}/{group}/{stream}", monError).Methods("GET")
+
 	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
-	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monError).Methods("GET")
+	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monErrorLevel).Methods("GET")
 
 	// static and client side
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
@@ -57,11 +60,52 @@ func rootAPI(res http.ResponseWriter, req *http.Request) {
 // Webhandler. Возвращает text/plain значение ошибки для выбранных группы и канала.
 func monError(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
+	res.Header().Set("Content-Type", "text/plain")
+
+	vars := mux.Vars(req)
+	if vars["type"] != "" && vars["group"] != "" && vars["stream"] != "" {
+		if !StatsGlobals.MonitoringState {
+			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
+		}
+		if result, err := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"]); err == nil {
+			res.Write([]byte(StreamErr2String(result.ErrType)))
+		} else {
+			http.Error(res, "Result not found. Probably stream not tested yet.", http.StatusNotFound)
+		}
+	} else {
+		http.Error(res, "Bad parameters in query.", http.StatusBadRequest)
+	}
+}
+
+// Webhandler. Возвращает text/plain значение ошибки для выбранных группы и канала.
+// Если ошибка ниже заданного мин.уровня, то выдаётся 0=OK, если в границах указанных уровней, то 1=PROBLEM,
+// если выше макс.уровня, то 2=FATAL
+func monErrorLevel(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Server", SERVER)
+	res.Header().Set("Content-Type", "text/plain")
 
 	vars := mux.Vars(req)
 	if vars["type"] != "" && vars["group"] != "" && vars["stream"] != "" && vars["fromerrlevel"] != "" && vars["uptoerrlevel"] != "" {
-		result := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"])
-		res.Write([]byte(StreamErr2String(result.ErrType)))
+		if !StatsGlobals.MonitoringState {
+			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
+		}
+		if result, err := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"]); err == nil {
+			from := int(String2StreamErr(vars["fromerrlevel"]))
+			to := int(String2StreamErr(vars["uptoerrlevel"]))
+			cur := int(result.ErrType)
+			switch {
+			case cur <= from:
+				res.Write([]byte("0")) // OK
+			case cur >= to:
+				res.Write([]byte("2")) // FATAL
+			default:
+				res.Write([]byte("1")) // PROBLEM
+			}
+		} else {
+			http.Error(res, "Result not found. Probably stream not tested yet.", http.StatusNotFound)
+		}
+	} else {
+		http.Error(res, "Bad parameters in query.", http.StatusBadRequest)
 	}
 }
 

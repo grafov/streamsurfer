@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"expvar"
 	"sync"
 	"time"
@@ -136,11 +137,15 @@ func SaveStats(stream Stream, last *Result) {
 }
 
 // Получить состояние по последней проверке.
-func LoadLastStats(stype StreamType, group, stream string) *Result {
+func LoadLastStats(stype StreamType, group, stream string) (*Result, error) {
 	result := make(chan *Result)
 	statOut <- StatOutQuery{Key: StatKey{Type: stype, Group: group, Name: stream}, ReplyTo: result}
 	data := <-result
-	return data
+	if data != nil {
+		return data, nil
+	} else {
+		return nil, errors.New("result not found")
+	}
 }
 
 // Получить статистику по каналу за всё время наблюдения.

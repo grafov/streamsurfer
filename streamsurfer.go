@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	SURFER  = "Stream Surfer v0.1-dev"
-	VERSION = "0.X"
+	SURFER  = "Stream Surfer"
+	VERSION = "0.2"
 )
 
 var build_date string
@@ -45,7 +45,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Stream Surfer trace dumped:", r)
-			if err := ioutil.WriteFile(FullPath("~/hlsprobe2.trace"), r.([]byte), 0644); err != nil {
+			if err := ioutil.WriteFile(FullPath("~/streamsurfer.trace"), r.([]byte), 0644); err != nil {
 				fmt.Println("Can't write trace file!")
 			}
 		}

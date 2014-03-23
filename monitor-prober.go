@@ -90,7 +90,6 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 					case m3u8.MASTER:
 						//fmt.Printf("%+v\n", playlist)
 						m := playlist.(*m3u8.MasterPlaylist)
-						fmt.Printf(m.Encode().String())
 						subresult := make(chan *Result, 24)
 						for _, variant := range m.Variants {
 							splitted := strings.Split(task.URI, "/")
@@ -107,12 +106,11 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 						select {
 						case data := <-subresult:
 							result.SubResults = append(result.SubResults, data)
-							fmt.Printf("%v\n", data)
 						case <-time.After(60 * time.Second):
 						}
 					case m3u8.MEDIA:
 						p := playlist.(*m3u8.MediaPlaylist)
-						fmt.Printf(p.Encode().String())
+						p.Encode().String()
 					default:
 						result.ErrType = BADFORMAT
 					}
