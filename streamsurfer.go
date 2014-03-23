@@ -2,7 +2,7 @@
  Stream Surfer is prober and monitor for HTTP video streaming.
  This file defines main entry points of the program.
 
- Copyleft 2013  Alexander I.Grafov aka Axel <grafov@gmail.com>
+ Copyleft 2013-2014  Alexander I.Grafov aka Axel <grafov@gmail.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by

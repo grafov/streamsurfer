@@ -63,7 +63,7 @@ func LogKeeper(cfg *Config, verbose bool) {
 					logw.WriteString("error")
 				}
 				logw.WriteString(": ")
-				logw.WriteString(StreamErrText(msg.Result.ErrType))
+				logw.WriteString(StreamErr2String(msg.Result.ErrType))
 				logw.WriteRune(' ')
 				logw.WriteString(strconv.Itoa(msg.HTTPCode))
 				logw.WriteRune(' ')

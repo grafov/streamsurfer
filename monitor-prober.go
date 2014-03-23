@@ -1,4 +1,4 @@
-// Probers for different media formats.
+// Probers for dif
 package main
 
 import (
@@ -91,16 +91,24 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 						//fmt.Printf("%+v\n", playlist)
 						m := playlist.(*m3u8.MasterPlaylist)
 						fmt.Printf(m.Encode().String())
+						subresult := make(chan *Result, 24)
 						for _, variant := range m.Variants {
 							splitted := strings.Split(task.URI, "/")
 							splitted[len(splitted)-1] = variant.URI
 							suburi := strings.Join(splitted, "/")
-							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Group}, ReplyTo: make(chan Result)}
-							subresult := ExecHTTP(cfg, subtask)
-							result.SubResults = append(result.SubResults, subresult)
-							fmt.Printf("%s %v\n", suburi, subresult)
+							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Group}}
+							go func(subtask *Task) {
+								subresult <- ExecHTTP(cfg, subtask)
+							}(subtask)
+
 							//tasks <- task
 							// XXX
+						}
+						select {
+						case data := <-subresult:
+							result.SubResults = append(result.SubResults, data)
+							fmt.Printf("%v\n", data)
+						case <-time.After(60 * time.Second):
 						}
 					case m3u8.MEDIA:
 						p := playlist.(*m3u8.MediaPlaylist)

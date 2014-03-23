@@ -14,17 +14,26 @@ func HttpAPI(cfg *Config) {
 	r := mux.NewRouter()
 	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
 	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
-	r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
-	r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
-	r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
-	r.HandleFunc("/rprt/last-critical", rprtLastCritical).Methods("GET")
-	r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
-	r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
-	r.HandleFunc("/rprt/g/{group}/last-critical", rprtGroupLastCritical).Methods("GET")
-	r.HandleFunc("/zabbix", zabbixStatus).Methods("GET", "HEAD")                             // text report for all groups to Zabbix
-	r.HandleFunc("/zabbix/g/{group}", zabbixStatus).Methods("GET", "HEAD")                   // text report for selected group to Zabbix
-	r.HandleFunc("/zabbix/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD")           // discovery data for Zabbix for all groups
-	r.HandleFunc("/zabbix/g/{group}/discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for selected group
+	// r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
+	// r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
+	// r.HandleFunc("/rprt/last", rprtLast).Methods("GET")
+	// r.HandleFunc("/rprt/last-critical", rprtLastCritical).Methods("GET")
+	// r.HandleFunc("/rprt/g/{group}", rprtGroup).Methods("GET")
+	// r.HandleFunc("/rprt/g/{group}/last", rprtGroupLast).Methods("GET")
+	// r.HandleFunc("/rprt/g/{group}/last-critical", rprtGroupLastCritical).Methods("GET")
+	// r.HandleFunc("/zabbix", zabbixStatus).Methods("GET", "HEAD")                      // text report for all groups to Zabbix
+	// r.HandleFunc("/mon/status/{group}", zabbixStatus).Methods("GET", "HEAD")          // text report for selected group to Zabbix
+	// r.HandleFunc("/mon/status/{group}/{stream}", zabbixStatus).Methods("GET", "HEAD") // text report for selected group to Zabbix
+
+	// Zabbix autodiscovery protocol (JSON)
+	// https://www.zabbix.com/documentation/ru/2.0/manual/discovery/low_level_discovery
+	// new API
+	r.HandleFunc("/zabbix-discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for all groups
+	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery(cfg)).Methods("GET")
+
+	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
+	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monError).Methods("GET")
+
 	// static and client side
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
@@ -45,56 +54,67 @@ func rootAPI(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func rprtMainPage(res http.ResponseWriter, req *http.Request) {
+// Webhandler. Возвращает text/plain значение ошибки для выбранных группы и канала.
+func monError(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Server", SERVER)
-	res.Write(ReportMainPage())
+
+	vars := mux.Vars(req)
+	if vars["type"] != "" && vars["group"] != "" && vars["stream"] != "" && vars["fromerrlevel"] != "" && vars["uptoerrlevel"] != "" {
+		result := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"])
+		res.Write([]byte(StreamErr2String(result.ErrType)))
+	}
 }
 
-func rprtGroupAll(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write([]byte("Сводный отчёт по группам."))
-}
+// func rprtMainPage(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(ReportMainPage())
+// }
 
-func rprtGroup(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write([]byte("HLS Probe at service."))
-}
+// func rprtGroupAll(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write([]byte("Сводный отчёт по группам."))
+// }
 
-// Group errors report
-func rprtGroupLast(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write(ReportLast(mux.Vars(req), false))
-}
+// func rprtGroup(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write([]byte("HLS Probe at service."))
+// }
 
-// Group errors report
-func rprtGroupLastCritical(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write(ReportLast(mux.Vars(req), true))
-}
+// // Group errors report
+// func rprtGroupLast(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(ReportLast(mux.Vars(req), false))
+// }
 
-// Group errors report
-func rprt3Hours(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write(Report3Hours(mux.Vars(req)))
-}
+// // Group errors report
+// func rprtGroupLastCritical(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(ReportLast(mux.Vars(req), true))
+// }
 
-// Group errors report
-func rprtLast(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write(ReportLast(mux.Vars(req), false))
-}
+// // Group errors report
+// func rprt3Hours(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(Report3Hours(mux.Vars(req)))
+// }
 
-// Group errors report
-func rprtLastCritical(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write(ReportLast(mux.Vars(req), true))
-}
+// // Group errors report
+// func rprtLast(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(ReportLast(mux.Vars(req), false))
+// }
+
+// // Group errors report
+// func rprtLastCritical(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(ReportLast(mux.Vars(req), true))
+// }
 
 // Zabbix integration
-func zabbixStatus(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	res.Write(ZabbixStatus(mux.Vars(req)))
-}
+// func zabbixStatus(res http.ResponseWriter, req *http.Request) {
+// 	res.Header().Set("Server", SERVER)
+// 	res.Write(ZabbixStatus(mux.Vars(req)))
+// }
 
 // Zabbix integration (with cfg curried)
 func zabbixDiscovery(cfg *Config) func(http.ResponseWriter, *http.Request) {

@@ -181,7 +181,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 
 	for {
 		select {
-		case recv := <-*ctlrcv.In:
+		case recv := <-ctlrcv.In:
 			command = recv.(Command)
 			switch command {
 			case START_MON:
@@ -308,7 +308,7 @@ func ExecHTTP(cfg *Config, task *Task) *Result {
 		}
 	}()
 
-	result := &Result{Started: time.Now(), Elapsed: 0 * time.Second}
+	result := &Result{Task: task, Started: time.Now(), Elapsed: 0 * time.Second}
 	if !strings.HasPrefix(task.URI, "http://") && !strings.HasPrefix(task.URI, "https://") {
 		result.ErrType = BADURI
 		result.HTTPCode = 0

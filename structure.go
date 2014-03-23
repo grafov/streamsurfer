@@ -13,16 +13,19 @@ const (
 )
 
 // Kinds of streams
+// Must be in consistence with StreamType2String() and String2StreamType()
 const (
-	SAMPLE StreamType = iota // internet resources for monitor self checks
-	HTTP                     // "plain" HTTP
-	HLS                      // Apple HTTP Live Streaming
-	HDS                      // Adobe HTTP Dynamic Streaming
-	WV                       // Widevine VOD
+	UNKSTREAM StreamType = iota // хрень какая-то
+	SAMPLE                      // internet resources for monitor self checks
+	HTTP                        // "plain" HTTP
+	HLS                         // Apple HTTP Live Streaming
+	HDS                         // Adobe HTTP Dynamic Streaming
+	WV                          // Widevine VOD
 )
 
 // Error codes (ordered by errors importance).
 // If several errors detected then only one with the heaviest weight reported.
+// Must be in consistence with String2StreamErr() and StreamErr2String()
 const (
 	SUCCESS        ErrType = iota
 	DEBUG_LEVEL            // Internal debug messages follow below:
@@ -43,7 +46,7 @@ const (
 	BADURI                 // Incorret URI format
 	LISTEMPTY              // HLS specific (by m3u8 lib)
 	BADFORMAT              // HLS specific (by m3u8 lib)
-	UNKNOWN
+	UNKERR                 // хрень какая-то
 )
 
 // Commands for probers.
@@ -97,8 +100,9 @@ type GroupTask struct {
 	ReplyTo chan Result
 }
 
-// Stream checking result
+// Result of task of check streaming
 type Result struct {
+	Task              *Task
 	ErrType           ErrType
 	HTTPCode          int    // HTTP status code
 	HTTPStatus        string // HTTP status string
@@ -106,8 +110,8 @@ type Result struct {
 	RealContentLength int64
 	Headers           http.Header
 	Body              bytes.Buffer
-	Started           time.Time
-	Elapsed           time.Duration
+	Started           time.Time     // начало исполнения проверки
+	Elapsed           time.Duration // понадобилось времени на задачу
 	TotalErrs         uint
 	Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
 	SubResults        []*Result   // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
@@ -123,16 +127,23 @@ type MetaHDS struct {
 	DeepLinks []string      // sublists for analysis
 }
 
+// ключ для статистики
 type StatKey struct {
 	Type  StreamType
 	Group string
 	Name  string
-	Date  time.Time
 }
 
-type StreamStats struct {
+// запросы на сохранение статистики
+type StatInQuery struct {
 	Stream Stream
 	Last   Result
+}
+
+// запросы на получение статистики
+type StatOutQuery struct {
+	Key     StatKey
+	ReplyTo chan *Result
 }
 
 type ErrHistoryKey struct {

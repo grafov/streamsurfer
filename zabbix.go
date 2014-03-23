@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
+	//	"strconv"
 	"text/template"
 )
 
@@ -42,7 +42,7 @@ func ZabbixDiscoveryWeb(cfg *Config, vars map[string]string) []byte {
 
 	for _, stream := range cfg.StreamsHLS {
 		buf.Reset()
-		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamTypeText(stream.Type)})
+		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamType2String(stream.Type)})
 		if _, exists := vars["group"]; exists { // report for selected group
 			if stream.Group == vars["group"] {
 				data.Data = append(data.Data, map[string]string{"{#STREAM}": buf.String()})
@@ -58,7 +58,7 @@ func ZabbixDiscoveryWeb(cfg *Config, vars map[string]string) []byte {
 
 	for _, stream := range cfg.StreamsHTTP {
 		buf.Reset()
-		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamTypeText(stream.Type)})
+		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamType2String(stream.Type)})
 		if _, exists := vars["group"]; exists { // report for selected group
 			if stream.Group == vars["group"] {
 				data.Data = append(data.Data, map[string]string{"{#STREAM}": buf.String()})
@@ -105,7 +105,7 @@ func ZabbixDiscoveryFile(cfg *Config) {
 
 	for _, stream := range cfg.StreamsHLS {
 		buf.Reset()
-		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamTypeText(stream.Type)})
+		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamType2String(stream.Type)})
 		if len(cfg.Params.Zabbix.DiscoveryGroups) > 0 {
 			if sort.SearchStrings(cfg.Params.Zabbix.DiscoveryGroups, stream.Group) == 0 {
 				data.Data = append(data.Data, map[string]string{"{#STREAM}": buf.String()})
@@ -117,7 +117,7 @@ func ZabbixDiscoveryFile(cfg *Config) {
 
 	for _, stream := range cfg.StreamsHTTP {
 		buf.Reset()
-		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamTypeText(stream.Type)})
+		_ = tmpl.Execute(buf, streamTemplateData{Stream: stream, Check: StreamType2String(stream.Type)})
 		if len(cfg.Params.Zabbix.DiscoveryGroups) > 0 && sort.SearchStrings(cfg.Params.Zabbix.DiscoveryGroups, stream.Group) == 0 {
 			data.Data = append(data.Data, map[string]string{"{#STREAM}": buf.String()})
 		}
@@ -128,46 +128,46 @@ func ZabbixDiscoveryFile(cfg *Config) {
 }
 
 // Log problem for Zabbix agent (duplicates error log but in another format)
-func ZabbixStatus(vars map[string]string) []byte {
-	var page bytes.Buffer
+// func ZabbixStatus(vars map[string]string) []byte {
+// 	var page bytes.Buffer
 
-	ReportedStreams.RLock()
-	defer ReportedStreams.RUnlock()
+// 	ReportedStreams.RLock()
+// 	defer ReportedStreams.RUnlock()
 
-	if _, exists := vars["group"]; exists { // report for selected group
-		for _, value := range ReportedStreams.data[vars["group"]] {
-			page.WriteString(strconv.Quote(fmt.Sprintf("%s-%s-%s", StreamTypeText(value.Stream.Type), value.Stream.Group, value.Stream.Name)))
-			page.WriteRune(',')
-			page.WriteString(strconv.Quote(StreamTypeText(value.Stream.Type)))
-			page.WriteRune(',')
-			page.WriteString(strconv.Quote(value.Stream.Group))
-			page.WriteRune(',')
-			page.WriteString(strconv.Quote(value.Stream.Name))
-			page.WriteRune(',')
-			errnum, _ := fatalityLevel(value.Last.ErrType)
-			page.WriteString(strconv.Itoa(errnum))
-			page.WriteRune('\n')
-		}
-	} else { // report for all groups
-		for _, group := range ReportedStreams.data {
-			for _, value := range group {
-				page.WriteString(strconv.Quote(fmt.Sprintf("%s-%s-%s", StreamTypeText(value.Stream.Type), value.Stream.Group, value.Stream.Name)))
-				page.WriteRune(',')
-				page.WriteString(strconv.Quote(StreamTypeText(value.Stream.Type)))
-				page.WriteRune(',')
-				page.WriteString(strconv.Quote(value.Stream.Group))
-				page.WriteRune(',')
-				page.WriteString(strconv.Quote(value.Stream.Name))
-				page.WriteRune(',')
-				errnum, _ := fatalityLevel(value.Last.ErrType)
-				page.WriteString(strconv.Itoa(errnum))
-				page.WriteRune('\n')
-			}
-		}
-	}
+// 	if _, exists := vars["group"]; exists { // report for selected group
+// 		for _, value := range ReportedStreams.data[vars["group"]] {
+// 			page.WriteString(strconv.Quote(fmt.Sprintf("%s-%s-%s", StreamTypeText(value.Stream.Type), value.Stream.Group, value.Stream.Name)))
+// 			page.WriteRune(',')
+// 			page.WriteString(strconv.Quote(StreamTypeText(value.Stream.Type)))
+// 			page.WriteRune(',')
+// 			page.WriteString(strconv.Quote(value.Stream.Group))
+// 			page.WriteRune(',')
+// 			page.WriteString(strconv.Quote(value.Stream.Name))
+// 			page.WriteRune(',')
+// 			errnum, _ := fatalityLevel(value.Last.ErrType)
+// 			page.WriteString(strconv.Itoa(errnum))
+// 			page.WriteRune('\n')
+// 		}
+// 	} else { // report for all groups
+// 		for _, group := range ReportedStreams.data {
+// 			for _, value := range group {
+// 				page.WriteString(strconv.Quote(fmt.Sprintf("%s-%s-%s", StreamTypeText(value.Stream.Type), value.Stream.Group, value.Stream.Name)))
+// 				page.WriteRune(',')
+// 				page.WriteString(strconv.Quote(StreamTypeText(value.Stream.Type)))
+// 				page.WriteRune(',')
+// 				page.WriteString(strconv.Quote(value.Stream.Group))
+// 				page.WriteRune(',')
+// 				page.WriteString(strconv.Quote(value.Stream.Name))
+// 				page.WriteRune(',')
+// 				errnum, _ := fatalityLevel(value.Last.ErrType)
+// 				page.WriteString(strconv.Itoa(errnum))
+// 				page.WriteRune('\n')
+// 			}
+// 		}
+// 	}
 
-	return page.Bytes()
-}
+// 	return page.Bytes()
+// }
 
 func fatalityLevel(err ErrType) (int, string) {
 	switch {

@@ -11,12 +11,16 @@ func FullPath(name string) string {
 }
 
 // Return text representation for StreamType constants
-func StreamTypeText(t StreamType) string {
+func StreamType2String(t StreamType) string {
 	switch t {
 	case SAMPLE:
 		return "sample"
 	case HLS:
 		return "hls"
+	case HDS:
+		return "hds"
+	case WV:
+		return "wv"
 	case HTTP:
 		return "http"
 	default:
@@ -24,8 +28,26 @@ func StreamTypeText(t StreamType) string {
 	}
 }
 
+//
+func String2StreamType(s string) StreamType {
+	switch strings.ToLower(s) {
+	case "sample":
+		return SAMPLE
+	case "hls":
+		return HLS
+	case "hds":
+		return HDS
+	case "wv":
+		return WV
+	case "http":
+		return HTTP
+	default:
+		return UNKSTREAM
+	}
+}
+
 // Text representation of stream errors
-func StreamErrText(err ErrType) string {
+func StreamErr2String(err ErrType) string {
 	switch err {
 	case SUCCESS:
 		return "success"
@@ -45,13 +67,57 @@ func StreamErrText(err ErrType) string {
 		return "list empty"
 	case BADFORMAT: // HLS specific
 		return "bad format"
+	case TTLEXPIRED:
+		return "TTL expired"
 	case RTIMEOUT:
 		return "timeout on read"
 	case CTIMEOUT:
 		return "connection timeout"
+	case BADLENGTH:
+		return "bad content length value"
+	case BODYREAD:
+		return "response body error"
 	case REFUSED:
 		return "connection refused"
 	default:
 		return "unknown"
+	}
+}
+
+//
+func String2StreamErr(s string) ErrType {
+	switch strings.ToLower(s) {
+	case "success":
+		return SUCCESS
+	case "hlsparser":
+		return HLSPARSER
+	case "badrequest":
+		return BADREQUEST
+	case "slow":
+		return SLOW
+	case "veryslow":
+		return VERYSLOW
+	case "badstatus":
+		return BADSTATUS
+	case "baduri":
+		return BADURI
+	case "listempty": // HLS specific
+		return LISTEMPTY
+	case "badformat": // HLS specific
+		return BADFORMAT
+	case "ttlexpired":
+		return TTLEXPIRED
+	case "rtimeout":
+		return RTIMEOUT
+	case "ctimeout":
+		return CTIMEOUT
+	case "badlength":
+		return BADLENGTH
+	case "bodyread":
+		return BODYREAD
+	case "refused":
+		return REFUSED
+	default:
+		return UNKERR
 	}
 }
