@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -32,7 +33,7 @@ func HttpAPI(cfg *Config) {
 	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery(cfg)).Methods("GET")
 
 	// строковое значение ошибки для выбранных группы и канала
-	r.HandleFunc("/mon/error/{type}/{group}/{stream}", monError).Methods("GET")
+	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{astype}", monError).Methods("GET")
 
 	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
 	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monErrorLevel).Methods("GET")
@@ -68,7 +69,12 @@ func monError(res http.ResponseWriter, req *http.Request) {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
 		}
 		if result, err := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"]); err == nil {
-			res.Write([]byte(StreamErr2String(result.ErrType)))
+			switch vars["astype"] {
+			case "str":
+				res.Write([]byte(StreamErr2String(result.ErrType)))
+			case "int":
+				res.Write([]byte(strconv.Itoa(int(result.ErrType))))
+			}
 		} else {
 			http.Error(res, "Result not found. Probably stream not tested yet.", http.StatusNotFound)
 		}
