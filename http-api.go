@@ -11,7 +11,7 @@ import (
 )
 
 // Elder.
-func HttpAPI(cfg *Config) {
+func HttpAPI() {
 	r := mux.NewRouter()
 	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
 	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
@@ -29,8 +29,8 @@ func HttpAPI(cfg *Config) {
 	// Zabbix autodiscovery protocol (JSON)
 	// https://www.zabbix.com/documentation/ru/2.0/manual/discovery/low_level_discovery
 	// new API
-	r.HandleFunc("/zabbix-discovery", zabbixDiscovery(cfg)).Methods("GET", "HEAD") // discovery data for Zabbix for all groups
-	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery(cfg)).Methods("GET")
+	r.HandleFunc("/zabbix-discovery", zabbixDiscovery()).Methods("GET", "HEAD") // discovery data for Zabbix for all groups
+	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET")
 
 	// строковое значение ошибки для выбранных группы и канала
 	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{astype}", monError).Methods("GET")
@@ -42,9 +42,9 @@ func HttpAPI(cfg *Config) {
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
 	r.Handle("/{{name}}.png", http.FileServer(http.Dir("pics"))).Methods("GET")
-	fmt.Printf("Listen for API connections at %s\n", cfg.Params.ListenHTTP)
+	fmt.Printf("Listen for API connections at %s\n", cfg.ListenHTTP)
 	srv := &http.Server{
-		Addr:        cfg.Params.ListenHTTP,
+		Addr:        cfg.ListenHTTP,
 		Handler:     r,
 		ReadTimeout: 30 * time.Second,
 	}
@@ -167,10 +167,10 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 // }
 
 // Zabbix integration (with cfg curried)
-func zabbixDiscovery(cfg *Config) func(http.ResponseWriter, *http.Request) {
+func zabbixDiscovery() func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Server", SERVER)
-		res.Write(ZabbixDiscoveryWeb(cfg, mux.Vars(req)))
+		res.Write(ZabbixDiscoveryWeb(mux.Vars(req)))
 	}
 }
 

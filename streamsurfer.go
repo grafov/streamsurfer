@@ -36,7 +36,7 @@ const (
 )
 
 var build_date string
-var Stubs = &StubValues{}
+var Stubs = &configStub{}
 
 func main() {
 	var confname = flag.String("config", "", "alternative configuration file")
@@ -56,14 +56,14 @@ func main() {
 
 	//cfgq := make(chan ConfigQuery, 12)
 	//go SourceLoader(*config, cfgq)
-	cfg := ReadConfig(*confname)
+	go ConfigKeeper(*confname)
 
-	go LogKeeper(cfg, *verbose) // collect program logs and write them to file
-	go StatKeeper(cfg)          // collect probe statistics and may be queried by report builders
+	go LogKeeper(*verbose) // collect program logs and write them to file
+	go StatKeeper()        // collect probe statistics and may be queried by report builders
 
-	go StreamMonitor(cfg)       // probe logic
-	go ZabbixDiscoveryFile(cfg) // maintain discovery file for Zabbix
-	go HttpAPI(cfg)             // control API
+	go StreamMonitor()       // probe logic
+	go ZabbixDiscoveryFile() // maintain discovery file for Zabbix
+	go HttpAPI()             // control API
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)

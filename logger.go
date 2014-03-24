@@ -25,7 +25,7 @@ type LogMessage struct {
 
 type Severity uint
 
-func LogKeeper(cfg *Config, verbose bool) {
+func LogKeeper(verbose bool) {
 	var skip error
 	var logw *bufio.Writer
 
@@ -36,10 +36,10 @@ func LogKeeper(cfg *Config, verbose bool) {
 	}()
 
 	logq = make(chan LogMessage, 1024)
-	logf, skip := os.Create(cfg.Params.ErrorLog)
+	logf, skip := os.Create(cfg.ErrorLog)
 	if skip == nil {
 		logw = bufio.NewWriter(logf)
-		fmt.Printf("Error log: %s\n", cfg.Params.ErrorLog)
+		fmt.Printf("Error log: %s\n", cfg.ErrorLog)
 	} else {
 		println("Can't create file for error log. Error logging to file skiped.")
 	}

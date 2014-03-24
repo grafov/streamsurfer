@@ -64,7 +64,7 @@ map результатов по времени:
 */
 
 // Elder
-func StatKeeper(cfg *Config) {
+func StatKeeper() {
 	var debugStatsCount = expvar.NewInt("stats-count")
 
 	statIn = make(chan StatInQuery, 8192)           // receive stats
@@ -113,7 +113,7 @@ func StatKeeper(cfg *Config) {
 
 		case <-timer: // cleanup old history entries
 			// log.Println("Cleanup routine entered. Cache len: ", len(stats), oldestStoredTime)
-			if len(cfg.Groups) == 0 || len(stats) == 0 {
+			if len(cfg.GroupParams) == 0 || len(stats) == 0 {
 				goto cleanupExit
 			}
 

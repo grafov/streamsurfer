@@ -12,7 +12,7 @@ import (
 
 // Probe HTTP without additional protocol parsing.
 // SaveStats timeouts and bad statuses.
-func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+func SimpleProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	var result *Result
 
 	defer func() {
@@ -26,10 +26,10 @@ func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *ex
 		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
 		if time.Now().Before(task.TTL) {
-			result = ExecHTTP(cfg, task)
+			result = ExecHTTP(task)
 			debugvars.Add("http-tasks-done", 1)
 		} else {
-			result = TaskExpired(cfg, task)
+			result = TaskExpired(task)
 			debugvars.Add("http-tasks-expired", 1)
 		}
 		task.ReplyTo <- *result
@@ -39,7 +39,7 @@ func SimpleProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *ex
 // TODO к реализации
 // Probe HTTP with additional checks for Widevine.
 // Really now only http-range check supported.
-func WidevineProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+func WidevineProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	var result *Result
 
 	defer func() {
@@ -53,10 +53,10 @@ func WidevineProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *
 		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
 		if time.Now().Before(task.TTL) {
-			result = ExecHTTP(cfg, task)
+			result = ExecHTTP(task)
 			debugvars.Add("wv-tasks-done", 1)
 		} else {
-			result = TaskExpired(cfg, task)
+			result = TaskExpired(task)
 			debugvars.Add("wv-tasks-expired", 1)
 		}
 		task.ReplyTo <- *result
@@ -66,7 +66,7 @@ func WidevineProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *
 // HTTP Live Streaming support.
 // Parse and probe M3U8 playlists (multi- and single bitrate)
 // and report time statistics and errors
-func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	var result *Result
 
 	defer func() {
@@ -80,7 +80,7 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
 		if time.Now().Before(task.TTL) {
-			result = ExecHTTP(cfg, task)
+			result = ExecHTTP(task)
 			if result.ErrType < ERROR_LEVEL && result.HTTPCode < 400 && result.ContentLength > 0 {
 				playlist, listType, err := m3u8.Decode(result.Body, true)
 				if err != nil {
@@ -97,7 +97,7 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 							suburi := strings.Join(splitted, "/")
 							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Group}}
 							go func(subtask *Task) {
-								subresult <- ExecHTTP(cfg, subtask)
+								subresult <- ExecHTTP(subtask)
 							}(subtask)
 
 							//tasks <- task
@@ -118,7 +118,7 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 			}
 			debugvars.Add("hls-tasks-done", 1)
 		} else {
-			result = TaskExpired(cfg, task)
+			result = TaskExpired(task)
 			debugvars.Add("hls-tasks-expired", 1)
 		}
 
@@ -129,10 +129,10 @@ func CupertinoProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars 
 
 // HTTP Dynamic Streaming prober.
 // Parse and probe F4M playlists and report time statistics and errors.
-func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
+func SanjoseProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	for {
 		task := <-tasks
-		result := ExecHTTP(cfg, task)
+		result := ExecHTTP(task)
 		task.ReplyTo <- *result
 		debugvars.Add("hds-tasks-done", 1)
 	}
@@ -140,7 +140,7 @@ func SanjoseProber(cfg *Config, ctl *bcast.Group, tasks chan *Task, debugvars *e
 
 // Parse and probe media chunk
 // and report time statistics and errors
-func MediaProber(cfg *Config, ctl *bcast.Group, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
+func MediaProber(ctl *bcast.Group, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 	for {
 		time.Sleep(20 * time.Second)
 	}

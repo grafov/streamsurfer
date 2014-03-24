@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,10 +28,11 @@ type Config struct {
 	Samples     []string
 	Params      Params
 	GroupParams map[string]Params
+	m           sync.Mutex
 }
 
 // Internal config structure parsed from YAML
-type config struct {
+type configYAML struct {
 	StreamsHLS     map[string][]string `yaml:"hls-streams,omitempty"`      // HLS parsing
 	StreamsHDS     map[string][]string `yaml:"hds-streams,omitempty"`      // HDS parsing
 	StreamsHTTP    map[string][]string `yaml:"http-streams,omitempty"`     // plain HTTP checks
@@ -79,15 +81,19 @@ type StubValues struct {
 	Name string `yaml:"name,omitempty"`
 }
 
-var NameParseMode string // regexp for parse name/title from the stream URL, by default string splitted by space and http:// part becomes URL other part becomes stream name
+// глобальный конфиг
+var cfg *Config
 
-func ReadConfig(confile string) (Cfg *Config) {
-	var cfg = &config{}
+// XXX выпилить
+//var NameParseMode string // regexp for parse name/title from the stream URL, by default string splitted by space and http:// part becomes URL other part becomes stream name
+
+func ReadConfig(confile string) *Config {
+	var cfg = &configYAML{}
 
 	// Hardcoded defaults:
 	cfg.Stubs = StubValues{Name: "Stream Surfer"}
 	// Final config:
-	Cfg = &Config{}
+	Cfg := new(Config)
 	if confile == "" {
 		confile = "/etc/streamsurfer/default.yaml"
 	}
@@ -104,11 +110,36 @@ func ReadConfig(confile string) (Cfg *Config) {
 		Cfg.GroupsWV = make(map[string]string)
 		Cfg.Params = cfg.Params
 		Cfg.Samples = cfg.Samples
-		Cfg.GroupParams = map[string]Params{}
 		Cfg.Params.MethodHTTP = strings.ToUpper(cfg.Params.MethodHTTP)
 		Stubs = &cfg.Stubs
 
-		NameParseMode = cfg.Params.ParseName
+		Cfg.GroupParams = make(map[string]Params)
+		Cfg.GroupParams = cfg.GroupParams
+
+		// for group, params := range cfg.GroupParams {
+		// 	if
+		// 	Cfg.GroupParams[group] = cfg.Params
+		// 	fmt.Printf("%s %v\n", group, params)
+		// 	// if params.ProbersHTTP != 0 {
+		// 	// 	Cfg.GroupParams[group].ProbersHTTP = params.ProbersHTTP
+		// 	// }
+		// 	// if params.ProbersHLS != 0 {
+		// 	// 	Cfg.GroupParams[group].ProbersHLS = params.ProbersHLS
+		// 	// }
+		// 	// if cfg.GroupParams[group].ProbersHDS != 0 {
+		// 	// 	Cfg.GroupParams[group].ProbersHDS = cfg.GroupParams[group].ProbersHDS
+		// 	// }
+		// 	// if cfg.GroupParams[group].ProbersWV != 0 {
+		// 	// 	Cfg.GroupParams[group].ProbersWV = cfg.GroupParams[group].ProbersWV
+		// 	// }
+		// 	if params.ParseName != "" {
+		// 		Cfg.GroupParams[group].ParseName = params.ParseName
+		// 	}
+		// 	// if cfg.GroupParams[group].User != "" {
+		// 	// 	Cfg.GroupParams[group].User = cfg.GroupParams[group].User
+		// 	// 	Cfg.GroupParams[group].Pass = cfg.GroupParams[group].Pass
+		// 	// }
+		// }
 
 		for groupName, streamList := range cfg.StreamsHLS {
 			nameList := addLocalConfig(&Cfg.StreamsHLS, HLS, groupName, streamList)
@@ -134,7 +165,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 
 		if cfg.GetStreamsHLS != nil {
 			for _, source := range cfg.GetStreamsHLS {
-				groupURI, groupName := splitName(source)
+				groupURI, groupName := splitName("", source)
 				remoteUser := ""
 				remotePass := ""
 				if _, exists := cfg.GroupParams[groupName]; exists {
@@ -150,9 +181,10 @@ func ReadConfig(confile string) (Cfg *Config) {
 				}
 			}
 		}
+		fmt.Printf("%+v\n", Cfg.GroupParams)
 		if cfg.GetStreamsHDS != nil {
 			for _, source := range cfg.GetStreamsHDS {
-				groupURI, groupName := splitName(source)
+				groupURI, groupName := splitName("", source)
 				remoteUser := ""
 				remotePass := ""
 				if _, exists := cfg.GroupParams[groupName]; exists {
@@ -170,7 +202,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		}
 		if cfg.GetStreamsHTTP != nil {
 			for _, source := range cfg.GetStreamsHTTP {
-				groupURI, groupName := splitName(source)
+				groupURI, groupName := splitName("", source)
 				remoteUser := ""
 				remotePass := ""
 				if _, exists := cfg.GroupParams[groupName]; exists {
@@ -188,7 +220,7 @@ func ReadConfig(confile string) (Cfg *Config) {
 		}
 		if cfg.GetStreamsWV != nil {
 			for _, source := range cfg.GetStreamsWV {
-				groupURI, groupName := splitName(source)
+				groupURI, groupName := splitName("", source)
 				remoteUser := ""
 				remotePass := ""
 				if _, exists := cfg.GroupParams[groupName]; exists {
@@ -259,13 +291,13 @@ func ReadConfig(confile string) (Cfg *Config) {
 	//	fmt.Printf("HLS: %+v\n\n", Cfg.StreamsHLS)
 	//fmt.Printf("HTTP: %+v\n\n", Cfg.GroupsHTTP)
 
-	return
+	return Cfg
 }
 
 // Helper. Split stream link to URI and Name parts.
 // Supported both cases: title<space>uri and uri<space>title
 // URI must be prepended by http:// or https://
-func splitName(source string) (uri string, name string) {
+func splitName(group, source string) (uri string, name string) {
 	source = strings.TrimSpace(source)
 	sep := regexp.MustCompile("htt(p|ps)://")
 	loc := sep.FindStringIndex(source)
@@ -284,8 +316,11 @@ func splitName(source string) (uri string, name string) {
 			name = uri
 		}
 	}
-	if NameParseMode != "" {
-		re := regexp.MustCompile(NameParseMode)
+	if group == "" {
+		return // для парсинга имён групп в YAML-конфиге не применяется парсинг по регвырам
+	}
+	if params, err := cfg.Params4(group); err == nil && params.ParseName != "" {
+		re := regexp.MustCompile(params.ParseName)
 		vals := re.FindStringSubmatch(uri)
 		if len(vals) > 1 {
 			name = vals[1]
@@ -299,7 +334,7 @@ func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources
 	var nameList []string
 
 	for _, source := range sources {
-		uri, name := splitName(source)
+		uri, name := splitName(group, source)
 		*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
 		nameList = append(nameList, name)
 	}
@@ -331,7 +366,7 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 			if err != nil {
 				break
 			}
-			uri, name := splitName(line)
+			uri, name := splitName(group, line)
 			nameList = append(nameList, name)
 			*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
 		}
@@ -341,5 +376,18 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 
 // TODO Dynamic configuration without program restart.
 // Elder.
-func ConfigKeeper() {
+func ConfigKeeper(confile string) {
+	cfg = new(Config)
+	cfg = ReadConfig(confile)
+	select {} // TODO reload config by query
+}
+
+func (cfg *Config) Params4(group string) (*Params, error) {
+	cfg.m.Lock()
+	defer cfg.m.Unlock()
+	if val, ok := cfg.GroupParams[group]; !ok {
+		return &cfg.Params, nil
+	} else {
+		return &val, nil
+	}
 }

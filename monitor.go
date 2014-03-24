@@ -12,8 +12,7 @@ import (
 )
 
 // Run monitors for each stream.
-func StreamMonitor(cfg *Config) {
-	var i uint
+func StreamMonitor() {
 	var debugvars = expvar.NewMap("streams")
 	var requestedTasks = expvar.NewInt("requested-tasks")
 	var queueSizeHLSTasks = expvar.NewInt("hls-tasks-queue")
@@ -48,103 +47,111 @@ func StreamMonitor(cfg *Config) {
 	hlstasks := make(chan *Task)
 	hdstasks := make(chan *Task)
 	wvtasks := make(chan *Task)
-	chunktasks := make(chan *Task, (cfg.Params.ProbersHLS+cfg.Params.ProbersHDS+cfg.Params.ProbersHTTP)*8) // TODO тут не задачи, другой тип
+	chunktasks := make(chan *Task, (cfg.TotalProbers)*8) // TODO тут не задачи, другой тип
 
 	ctl := bcast.NewGroup()
 	go ctl.Broadcasting(0)
-	go Heartbeat(cfg, ctl)
+	go Heartbeat(ctl)
 
-	for i = 0; i < cfg.Params.ProbersHLS; i++ {
-		go CupertinoProber(cfg, ctl, hlstasks, debugvars)
-	}
-	if cfg.Params.ProbersHLS > 0 {
-		fmt.Printf("%d HLS probers started.\n", cfg.Params.ProbersHLS)
-	}
-
-	for i = 0; i < cfg.Params.ProbersHDS; i++ {
-		go SanjoseProber(cfg, ctl, hdstasks, debugvars)
-	}
-	if cfg.Params.ProbersHDS > 0 {
-		fmt.Printf("%d HDS probers started.\n", cfg.Params.ProbersHDS)
-	}
-
-	for i = 0; i < cfg.Params.ProbersHTTP; i++ {
-		go SimpleProber(cfg, ctl, httptasks, debugvars)
-	}
-	if cfg.Params.ProbersHTTP > 0 {
-		fmt.Printf("%d HTTP probers started.\n", cfg.Params.ProbersHTTP)
-	}
-
-	for i = 0; i < cfg.Params.ProbersWV; i++ {
-		go WidevineProber(cfg, ctl, wvtasks, debugvars)
-	}
-	if cfg.Params.ProbersWV > 0 {
-		fmt.Printf("%d Widevine VOD probers started.\n", cfg.Params.ProbersWV)
-	}
-
-	for i = 0; i < cfg.Params.MediaProbers; i++ {
-		go MediaProber(cfg, ctl, HLS, chunktasks, debugvars)
-	}
-	if cfg.Params.MediaProbers > 0 {
-		fmt.Printf("%d media probers for HLS started.\n", cfg.Params.MediaProbers)
+	for _, gdata := range cfg.GroupParams {
+		switch gdata.Type {
+		case HLS:
+			for i := 0; i < gdata.Probers; i++ {
+				go CupertinoProber(ctl, hlstasks, debugvars)
+			}
+			for i := 0; i < gdata.MediaProbers; i++ {
+				go MediaProber(ctl, HLS, chunktasks, debugvars)
+			}
+		case HDS:
+			for i := 0; i < gdata.Probers; i++ {
+				go SanjoseProber(ctl, hdstasks, debugvars)
+			}
+			for i := 0; i < gdata.MediaProbers; i++ {
+				go MediaProber(ctl, HDS, chunktasks, debugvars)
+			}
+		case HTTP:
+			for i := 0; i < gdata.Probers; i++ {
+				go SimpleProber(ctl, httptasks, debugvars)
+			}
+		case WV:
+			for i := 0; i < gdata.Probers; i++ {
+				go WidevineProber(ctl, wvtasks, debugvars)
+			}
+		}
 	}
 
-	for i = 0; i < cfg.Params.MediaProbers; i++ {
-		go MediaProber(cfg, ctl, HDS, chunktasks, debugvars)
+	if cfg.TotalProbersHLS > 0 {
+		fmt.Printf("%d HLS probers started.\n", cfg.TotalProbersHLS)
 	}
-	if cfg.Params.MediaProbers > 0 {
-		fmt.Printf("%d media probers for HDS started.\n", cfg.Params.MediaProbers)
+	if cfg.TotalProbersHDS > 0 {
+		fmt.Printf("%d HDS probers started.\n", cfg.TotalProbersHDS)
+	}
+	if cfg.TotalProbersHTTP > 0 {
+		fmt.Printf("%d HTTP probers started.\n", cfg.TotalProbersHTTP)
+	}
+	if cfg.TotalProbersWV > 0 {
+		fmt.Printf("%d Widevine VOD probers started.\n", cfg.TotalProbersWV)
+	}
+	// if cfg.Params.MediaProbers > 0 {
+	// 	fmt.Printf("%d media probers for HLS started.\n", cfg.Params.MediaProbers)
+	// }
+	// if cfg.Params.MediaProbers > 0 {
+	// 	fmt.Printf("%d media probers for HDS started.\n", cfg.Params.MediaProbers)
+	// }
+
+	// for _, group := range cfg.GroupsHLS {
+	// 	go GroupBox(ctl, group, HLS, hlstasks, debugvars)
+	// }
+
+	// for _, group := range cfg.GroupsHTTP {
+	// 	go GroupBox(ctl, group, HTTP, httptasks, debugvars)
+	// }
+
+	count := 0
+	for _, streams := range cfg.GroupStreams {
+		for _, stream := range *streams {
+			go StreamBox(ctl, stream, HLS, hlstasks, debugvars)
+			count++
+		}
+	}
+	if count > 0 {
+		StatsGlobals.TotalHLSMonitoringPoints = count
+		fmt.Printf("%d HLS monitors started.\n", count)
 	}
 
-	for _, group := range cfg.GroupsHLS {
-		go GroupBox(cfg, ctl, group, HLS, hlstasks, debugvars)
-	}
+	// for _, stream := range cfg.StreamsHDS {
+	// 	go StreamBox(ctl, stream, HDS, hdstasks, debugvars)
+	// }
+	// if len(cfg.StreamsHDS) > 0 {
+	// 	StatsGlobals.TotalHLSMonitoringPoints = len(cfg.StreamsHDS)
+	// 	fmt.Printf("%d HDS monitors started.\n", StatsGlobals.TotalHDSMonitoringPoints)
+	// }
 
-	for _, group := range cfg.GroupsHTTP {
-		go GroupBox(cfg, ctl, group, HTTP, httptasks, debugvars)
-	}
+	// for _, stream := range cfg.StreamsHTTP {
+	// 	go StreamBox(ctl, stream, HTTP, httptasks, debugvars)
+	// }
+	// if len(cfg.StreamsHTTP) > 0 {
+	// 	StatsGlobals.TotalHTTPMonitoringPoints = len(cfg.StreamsHTTP)
+	// 	fmt.Printf("%d HTTP monitors started.\n", StatsGlobals.TotalHTTPMonitoringPoints)
+	// }
 
-	for _, stream := range cfg.StreamsHLS {
-		go StreamBox(cfg, ctl, stream, HLS, hlstasks, debugvars)
-	}
-	if len(cfg.StreamsHLS) > 0 {
-		StatsGlobals.TotalHLSMonitoringPoints = len(cfg.StreamsHLS)
-		fmt.Printf("%d HLS monitors started.\n", StatsGlobals.TotalHLSMonitoringPoints)
-	}
+	// for _, stream := range cfg.StreamsWV {
+	// 	go StreamBox(ctl, stream, WV, wvtasks, debugvars)
+	// }
+	// if len(cfg.StreamsWV) > 0 {
+	// 	StatsGlobals.TotalWVMonitoringPoints = len(cfg.StreamsWV)
+	// 	fmt.Printf("%d Widevine monitors started.\n", StatsGlobals.TotalWVMonitoringPoints)
+	// }
 
-	for _, stream := range cfg.StreamsHDS {
-		go StreamBox(cfg, ctl, stream, HDS, hdstasks, debugvars)
-	}
-	if len(cfg.StreamsHDS) > 0 {
-		StatsGlobals.TotalHLSMonitoringPoints = len(cfg.StreamsHDS)
-		fmt.Printf("%d HDS monitors started.\n", StatsGlobals.TotalHDSMonitoringPoints)
-	}
-
-	for _, stream := range cfg.StreamsHTTP {
-		go StreamBox(cfg, ctl, stream, HTTP, httptasks, debugvars)
-	}
-	if len(cfg.StreamsHTTP) > 0 {
-		StatsGlobals.TotalHTTPMonitoringPoints = len(cfg.StreamsHTTP)
-		fmt.Printf("%d HTTP monitors started.\n", StatsGlobals.TotalHTTPMonitoringPoints)
-	}
-
-	for _, stream := range cfg.StreamsWV {
-		go StreamBox(cfg, ctl, stream, WV, wvtasks, debugvars)
-	}
-	if len(cfg.StreamsWV) > 0 {
-		StatsGlobals.TotalWVMonitoringPoints = len(cfg.StreamsWV)
-		fmt.Printf("%d Widevine monitors started.\n", StatsGlobals.TotalWVMonitoringPoints)
-	}
-
-	StatsGlobals.TotalMonitoringPoints = len(cfg.StreamsHTTP) + len(cfg.StreamsHLS) + len(cfg.StreamsHDS)
+	// StatsGlobals.TotalMonitoringPoints = len(cfg.StreamsHTTP) + len(cfg.StreamsHLS) + len(cfg.StreamsHDS)
 }
 
 // Мониторинг и статистика групп потоков.
-func GroupBox(cfg *Config, ctl *bcast.Group, group string, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
+func GroupBox(ctl *bcast.Group, group string, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 }
 
 // Container keep single stream properties and regulary make tasks for appropriate probers.
-func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
+func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 	var checkCount uint64 // число прошедших проверок
 	var addSleepToBrokenStream time.Duration
 	var min, max int
@@ -194,10 +201,10 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			max = int(cfg.Params.TimeBetweenTasks)
-			min = int(cfg.Params.TimeBetweenTasks / 4. * 3.)
+			max = int(cfg.Params(stream.Group).TimeBetweenTasks)
+			min = int(cfg.Params(stream.Group).TimeBetweenTasks / 4. * 3.)
 			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Second + addSleepToBrokenStream) // randomize streams order
-			task.TTL = time.Now().Add(time.Duration(cfg.Params.TaskTTL * time.Second))
+			task.TTL = time.Now().Add(time.Duration(cfg.Params(stream.Group).TaskTTL * time.Second))
 			taskq <- task
 			debugvars.Add("requested-tasks", 1)
 			result := <-task.ReplyTo
@@ -216,8 +223,8 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 			prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
 			errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
 			errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
-			max = int(cfg.Params.CheckBrokenTime)
-			min = int(cfg.Params.CheckBrokenTime / 4. * 3.)
+			max = int(cfg.Params(stream.Group).CheckBrokenTime)
+			min = int(cfg.Params(stream.Group).CheckBrokenTime / 4. * 3.)
 
 			switch {
 			// too much repeatable errors per hour:
@@ -240,10 +247,10 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 				if result.ErrType >= WARNING_LEVEL {
 					go Log(ERROR, stream, result)
 				} else {
-					if result.Elapsed >= cfg.Params.VerySlowWarningTimeout*time.Second {
+					if result.Elapsed >= cfg.Params(stream.Group).VerySlowWarningTimeout*time.Second {
 						result.ErrType = VERYSLOW
 						go Log(WARNING, stream, result)
-					} else if result.Elapsed >= cfg.Params.SlowWarningTimeout*time.Second {
+					} else if result.Elapsed >= cfg.Params(stream.Group).SlowWarningTimeout*time.Second {
 						result.ErrType = SLOW
 						go Log(WARNING, stream, result)
 					}
@@ -255,7 +262,7 @@ func StreamBox(cfg *Config, ctl *bcast.Group, stream Stream, streamType StreamTy
 
 // Check & report internet availability. Stop all probers when sample internet resources not available.
 // Refs to config option ``samples``.
-func Heartbeat(cfg *Config, ctl *bcast.Group) {
+func Heartbeat(ctl *bcast.Group) {
 	var previous bool
 
 	ctlsnr := ctl.Join()
@@ -293,7 +300,7 @@ func Heartbeat(cfg *Config, ctl *bcast.Group) {
 }
 
 // Helper for expired tasks. Return result with TTL Expired status.
-func TaskExpired(cfg *Config, task *Task) *Result {
+func TaskExpired(task *Task) *Result {
 	result := &Result{Started: time.Now(), Elapsed: 0 * time.Second}
 	result.ContentLength = -1
 	result.ErrType = TTLEXPIRED
@@ -301,7 +308,7 @@ func TaskExpired(cfg *Config, task *Task) *Result {
 }
 
 // Helper. Execute stream check task and return result with check status.
-func ExecHTTP(cfg *Config, task *Task) *Result {
+func ExecHTTP(task *Task) *Result {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("trace dumped in ExecHTTP:", r)
@@ -316,8 +323,8 @@ func ExecHTTP(cfg *Config, task *Task) *Result {
 		result.ContentLength = -1
 		return result
 	}
-	client := NewTimeoutClient(cfg.Params.ConnectTimeout*time.Second, cfg.Params.RWTimeout*time.Second)
-	req, err := http.NewRequest(cfg.Params.MethodHTTP, task.URI, nil) // TODO разделить метод по проберам
+	client := NewTimeoutClient(cfg.Params(task.Group).ConnectTimeout*time.Second, cfg.Params(task.Group).RWTimeout*time.Second)
+	req, err := http.NewRequest(cfg.Params(task.Group).MethodHTTP, task.URI, nil) // TODO разделить метод по проберам
 	if err != nil {
 		fmt.Println(err)
 		result.ErrType = BADURI
@@ -330,7 +337,7 @@ func ExecHTTP(cfg *Config, task *Task) *Result {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
-		if result.Elapsed >= cfg.Params.ConnectTimeout*time.Second {
+		if result.Elapsed >= cfg.Params(task.Group).ConnectTimeout*time.Second {
 			result.ErrType = CTIMEOUT
 		} else {
 			result.ErrType = REFUSED
