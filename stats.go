@@ -78,11 +78,11 @@ func StatKeeper() {
 	for {
 		select {
 		case state := <-statIn: // receive new statitics data for saving
-			curstats[StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name}] = state.Last
-			if _, ok := stats[StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name}]; !ok {
-				stats[StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name}] = make(map[time.Time]Result, 0)
+			curstats[StatKey{state.Stream.Group, state.Stream.Name}] = state.Last
+			if _, ok := stats[StatKey{state.Stream.Group, state.Stream.Name}]; !ok {
+				stats[StatKey{state.Stream.Group, state.Stream.Name}] = make(map[time.Time]Result, 0)
 			}
-			stats[StatKey{state.Stream.Type, state.Stream.Group, state.Stream.Name}][state.Last.Started] = state.Last
+			stats[StatKey{state.Stream.Group, state.Stream.Name}][state.Last.Started] = state.Last
 			debugStatsCount.Add(1)
 
 			// Дальше устаревшая статистика, надо выпилить
@@ -137,9 +137,9 @@ func SaveStats(stream Stream, last *Result) {
 }
 
 // Получить состояние по последней проверке.
-func LoadLastStats(stype StreamType, group, stream string) (*Result, error) {
+func LoadLastStats(group, stream string) (*Result, error) {
 	result := make(chan *Result)
-	statOut <- StatOutQuery{Key: StatKey{Type: stype, Group: group, Name: stream}, ReplyTo: result}
+	statOut <- StatOutQuery{Key: StatKey{Group: group, Name: stream}, ReplyTo: result}
 	data := <-result
 	if data != nil {
 		return data, nil

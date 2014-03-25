@@ -54,13 +54,11 @@ func main() {
 	fmt.Printf("Stream Surfer vers. %s (build %s)\n", VERSION, build_date)
 	flag.Parse()
 
-	//cfgq := make(chan ConfigQuery, 12)
-	//go SourceLoader(*config, cfgq)
-	go ConfigKeeper(*confname)
+	InitConfig(*confname)
 
-	go LogKeeper(*verbose) // collect program logs and write them to file
-	go StatKeeper()        // collect probe statistics and may be queried by report builders
-
+	go ConfigKeeper()
+	go LogKeeper(*verbose)   // collect program logs and write them to file
+	go StatKeeper()          // collect probe statistics and may be queried by report builders
 	go StreamMonitor()       // probe logic
 	go ZabbixDiscoveryFile() // maintain discovery file for Zabbix
 	go HttpAPI()             // control API

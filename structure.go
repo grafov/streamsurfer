@@ -129,7 +129,6 @@ type MetaHDS struct {
 
 // ключ для статистики
 type StatKey struct {
-	Type  StreamType
 	Group string
 	Name  string
 }

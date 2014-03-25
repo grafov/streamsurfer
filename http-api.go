@@ -33,10 +33,10 @@ func HttpAPI() {
 	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET")
 
 	// строковое значение ошибки для выбранных группы и канала
-	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{astype}", monError).Methods("GET")
+	r.HandleFunc("/mon/error/{group}/{stream}/{astype}", monError).Methods("GET")
 
 	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
-	r.HandleFunc("/mon/error/{type}/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monErrorLevel).Methods("GET")
+	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monErrorLevel).Methods("GET")
 
 	// static and client side
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
@@ -64,11 +64,12 @@ func monError(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
 
 	vars := mux.Vars(req)
-	if vars["type"] != "" && vars["group"] != "" && vars["stream"] != "" {
+	if vars["group"] != "" && vars["stream"] != "" {
 		if !StatsGlobals.MonitoringState {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
+			return
 		}
-		if result, err := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"]); err == nil {
+		if result, err := LoadLastStats(vars["group"], vars["stream"]); err == nil {
 			switch vars["astype"] {
 			case "str":
 				res.Write([]byte(StreamErr2String(result.ErrType)))
@@ -76,7 +77,8 @@ func monError(res http.ResponseWriter, req *http.Request) {
 				res.Write([]byte(strconv.Itoa(int(result.ErrType))))
 			}
 		} else {
-			http.Error(res, "Result not found. Probably stream not tested yet.", http.StatusNotFound)
+			res.Write([]byte("0")) // пока проверки не проводились, считаем, что всё ок. Чего зря беспокоиться?
+			//http.Error(res, "0", http.StatusNotFound)
 		}
 	} else {
 		http.Error(res, "Bad parameters in query.", http.StatusBadRequest)
@@ -94,8 +96,9 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 	if vars["type"] != "" && vars["group"] != "" && vars["stream"] != "" && vars["fromerrlevel"] != "" && vars["uptoerrlevel"] != "" {
 		if !StatsGlobals.MonitoringState {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
+			return
 		}
-		if result, err := LoadLastStats(String2StreamType(vars["type"]), vars["group"], vars["stream"]); err == nil {
+		if result, err := LoadLastStats(vars["group"], vars["stream"]); err == nil {
 			from := int(String2StreamErr(vars["fromerrlevel"]))
 			to := int(String2StreamErr(vars["uptoerrlevel"]))
 			cur := int(result.ErrType)
@@ -108,7 +111,8 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 				res.Write([]byte("1")) // PROBLEM
 			}
 		} else {
-			http.Error(res, "Result not found. Probably stream not tested yet.", http.StatusNotFound)
+			res.Write([]byte("0")) // пока проверки не проводились, считаем, что всё ок. Чего зря беспокоиться?
+			//http.Error(res, "Result not found. Probably stream not tested yet.", http.StatusNotFound)
 		}
 	} else {
 		http.Error(res, "Bad parameters in query.", http.StatusBadRequest)

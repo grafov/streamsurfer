@@ -27,6 +27,7 @@ type Config struct {
 	Samples          []string
 	ListenHTTP       string
 	ErrorLog         string
+	IsReady          chan bool // config parsed and ready to use
 }
 
 // parsed grup config
@@ -95,20 +96,27 @@ var cfg *Config
 
 // TODO Dynamic configuration without program restart.
 // Elder.
-func ConfigKeeper(confile string) {
+func InitConfig(confile string) {
 	rawcfg := rawConfig(confile)
 	cfg = new(Config)
+	cfg.IsReady = make(chan bool, 1)
 	parseOptionsConfig(rawcfg)
 	parseGroupsConfig(rawcfg)
+	cfg.IsReady <- true
+}
+
+// XXX for future
+func ConfigKeeper() {
+	<-cfg.IsReady
 	select {} // TODO reload config by query
 }
 
 //
-func (cfg *Config) Params(gname string) *configGroup {
+func (cfg *Config) Params(gname string) configGroup {
 	if data, ok := cfg.GroupParams[gname]; ok {
-		return data
+		return *data
 	} else {
-		return nil
+		return configGroup{}
 	}
 }
 
@@ -166,28 +174,46 @@ func parseGroupsConfig(rawcfg *configYAML) {
 		cfg.TotalProbers += gdata.Probers
 
 		cfg.GroupParams[gname] = &configGroup{
-			Type:            stype,
-			Probers:         gdata.Probers,
-			MediaProbers:    gdata.MediaProbers,
-			CheckBrokenTime: gdata.CheckBrokenTime}
+			Type:                   stype,
+			Probers:                gdata.Probers,
+			MediaProbers:           gdata.MediaProbers,
+			CheckBrokenTime:        gdata.CheckBrokenTime,
+			ParseMethod:            gdata.ParseMethod,
+			TimeBetweenTasks:       gdata.TimeBetweenTasks,
+			ConnectTimeout:         gdata.ConnectTimeout,
+			RWTimeout:              gdata.RWTimeout,
+			SlowWarningTimeout:     gdata.SlowWarningTimeout,
+			VerySlowWarningTimeout: gdata.VerySlowWarningTimeout,
+			TaskTTL:                gdata.TaskTTL,
+			TryOneSegment:          gdata.TryOneSegment,
+			MethodHTTP:             strings.ToUpper(gdata.MethodHTTP),
+			User:                   gdata.User,
+			Pass:                   gdata.Pass,
+		}
 
 		if gdata.URI != "" {
 			cfg.GroupStreams[gname] = new([]Stream)
-			addRemoteConfig(cfg.GroupStreams[gname], stype, gname, gdata.URI, gdata.User, gdata.Pass)
+			addRemoteConfig(cfg.GroupStreams[gname], cfg.GroupParams[gname], gname, gdata.URI, gdata.User, gdata.Pass)
 		} else {
 			cfg.GroupStreams[gname] = new([]Stream)
-			addLocalConfig(cfg.GroupStreams[gname], stype, gname, gdata.Streams)
+			addLocalConfig(cfg.GroupStreams[gname], cfg.GroupParams[gname], gname, gdata.Streams)
 		}
 	}
-	fmt.Printf("%+v\n", cfg.GroupParams)
-	fmt.Printf("%+v\n", cfg.GroupStreams)
+	// println("----------------------------------------")
+	// for key, data := range cfg.GroupParams {
+	// 	fmt.Printf("%s %#v\n", key, data)
+	// }
+	// println("----------------------------------------")
+	// for key, data := range cfg.GroupStreams {
+	// 	fmt.Printf("%s %#v\n", key, data)
+	// }
 }
 
 // Helper. Get remote list of streams.
-func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, remoteUser, remotePass string) error {
+func addRemoteConfig(dest *[]Stream, params *configGroup, group string, uri, remoteUser, remotePass string) error {
 	defer func() error {
 		if r := recover(); r != nil {
-			return errors.New(fmt.Sprintf("Can't get remote config for (%s) %s %s", streamType, group, uri))
+			return errors.New(fmt.Sprintf("Can't get remote config for (%s) %s %s", params.Type, group, uri))
 		}
 		return nil
 	}()
@@ -197,6 +223,9 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 	if err != nil {
 		return err
 	}
+	if remoteUser != "" {
+		req.SetBasicAuth(remoteUser, remotePass)
+	}
 	result, err := client.Do(req)
 	if err == nil {
 		body := bufio.NewReader(result.Body)
@@ -205,23 +234,24 @@ func addRemoteConfig(dest *[]Stream, streamType StreamType, group string, uri, r
 			if err != nil {
 				break
 			}
-			uri, name := splitName(group, line)
-			*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
+			uri, name := splitName(params.ParseMethod, line)
+			*dest = append(*dest, Stream{URI: uri, Type: params.Type, Name: name, Group: group})
 		}
 	}
 	return err
 }
 
 // Helper. Parse config of
-func addLocalConfig(dest *[]Stream, streamType StreamType, group string, sources []string) {
+func addLocalConfig(dest *[]Stream, params *configGroup, group string, sources []string) {
 	for _, source := range sources {
-		uri, name := splitName(group, source)
-		*dest = append(*dest, Stream{URI: uri, Type: streamType, Name: name, Group: group})
+		uri, name := splitName(params.ParseMethod, source)
+		*dest = append(*dest, Stream{URI: uri, Type: params.Type, Name: name, Group: group})
 	}
 }
 
 // Helper. Split stream link to URI and Name parts.
 // Supported both cases: title<space>uri and uri<space>title
+// If `re` presents then name parsed from uri by regular expression.
 // URI must be prepended by http:// or https://
 func splitName(re, source string) (uri string, name string) {
 	source = strings.TrimSpace(source)

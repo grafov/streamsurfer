@@ -27,6 +27,7 @@ func StreamMonitor() {
 	var queueSizeWVTasks = expvar.NewInt("wv-tasks-queue")
 	var executedWVTasks = expvar.NewInt("wv-tasks-done")
 	var expiredWVTasks = expvar.NewInt("wv-tasks-expired")
+	var hlscount, hdscount, wvcount, httpcount int
 
 	debugvars.Set("requested-tasks", requestedTasks)
 	debugvars.Set("hls-tasks-queue", queueSizeHLSTasks)
@@ -42,108 +43,106 @@ func StreamMonitor() {
 	debugvars.Set("wv-tasks-done", executedWVTasks)
 	debugvars.Set("wv-tasks-expired", expiredWVTasks)
 
-	// channels for different task types
-	httptasks := make(chan *Task)
-	hlstasks := make(chan *Task)
-	hdstasks := make(chan *Task)
-	wvtasks := make(chan *Task)
-	chunktasks := make(chan *Task, (cfg.TotalProbers)*8) // TODO тут не задачи, другой тип
-
 	ctl := bcast.NewGroup()
 	go ctl.Broadcasting(0)
 	go Heartbeat(ctl)
 
-	for _, gdata := range cfg.GroupParams {
+	// запуск проберов и потоков
+	for gname, gdata := range cfg.GroupParams {
 		switch gdata.Type {
 		case HLS:
+			gtasks := make(chan *Task)
 			for i := 0; i < gdata.Probers; i++ {
-				go CupertinoProber(ctl, hlstasks, debugvars)
+				go CupertinoProber(ctl, gtasks, debugvars)
 			}
+			gchunktasks := make(chan *Task)
 			for i := 0; i < gdata.MediaProbers; i++ {
-				go MediaProber(ctl, HLS, chunktasks, debugvars)
+				go MediaProber(ctl, HLS, gchunktasks, debugvars)
+			}
+			for _, stream := range *cfg.GroupStreams[gname] {
+				go StreamBox(ctl, stream, HLS, gtasks, debugvars)
+				hlscount++
 			}
 		case HDS:
+			gtasks := make(chan *Task)
 			for i := 0; i < gdata.Probers; i++ {
-				go SanjoseProber(ctl, hdstasks, debugvars)
+				go SanjoseProber(ctl, gtasks, debugvars)
 			}
+			gchunktasks := make(chan *Task)
 			for i := 0; i < gdata.MediaProbers; i++ {
-				go MediaProber(ctl, HDS, chunktasks, debugvars)
+				go MediaProber(ctl, HDS, gchunktasks, debugvars)
+			}
+			for _, stream := range *cfg.GroupStreams[gname] {
+				go StreamBox(ctl, stream, HDS, gtasks, debugvars)
+				hdscount++
 			}
 		case HTTP:
+			gtasks := make(chan *Task)
 			for i := 0; i < gdata.Probers; i++ {
-				go SimpleProber(ctl, httptasks, debugvars)
+				go SimpleProber(ctl, gtasks, debugvars)
+			}
+			for _, stream := range *cfg.GroupStreams[gname] {
+				go StreamBox(ctl, stream, HTTP, gtasks, debugvars)
+				httpcount++
 			}
 		case WV:
+			gtasks := make(chan *Task)
 			for i := 0; i < gdata.Probers; i++ {
-				go WidevineProber(ctl, wvtasks, debugvars)
+				go WidevineProber(ctl, gtasks, debugvars)
+			}
+			for _, stream := range *cfg.GroupStreams[gname] {
+				go StreamBox(ctl, stream, WV, gtasks, debugvars)
+				wvcount++
 			}
 		}
 	}
 
 	if cfg.TotalProbersHLS > 0 {
 		fmt.Printf("%d HLS probers started.\n", cfg.TotalProbersHLS)
+	} else {
+		println("No HLS probers started.")
 	}
 	if cfg.TotalProbersHDS > 0 {
 		fmt.Printf("%d HDS probers started.\n", cfg.TotalProbersHDS)
+	} else {
+		println("No HDS probers started.")
 	}
 	if cfg.TotalProbersHTTP > 0 {
 		fmt.Printf("%d HTTP probers started.\n", cfg.TotalProbersHTTP)
+	} else {
+		println("No HTTP probers started.")
 	}
 	if cfg.TotalProbersWV > 0 {
 		fmt.Printf("%d Widevine VOD probers started.\n", cfg.TotalProbersWV)
+	} else {
+		println("No Widevine probers started.")
 	}
-	// if cfg.Params.MediaProbers > 0 {
-	// 	fmt.Printf("%d media probers for HLS started.\n", cfg.Params.MediaProbers)
-	// }
-	// if cfg.Params.MediaProbers > 0 {
-	// 	fmt.Printf("%d media probers for HDS started.\n", cfg.Params.MediaProbers)
-	// }
-
-	// for _, group := range cfg.GroupsHLS {
-	// 	go GroupBox(ctl, group, HLS, hlstasks, debugvars)
-	// }
-
-	// for _, group := range cfg.GroupsHTTP {
-	// 	go GroupBox(ctl, group, HTTP, httptasks, debugvars)
-	// }
-
-	count := 0
-	for _, streams := range cfg.GroupStreams {
-		for _, stream := range *streams {
-			go StreamBox(ctl, stream, HLS, hlstasks, debugvars)
-			count++
-		}
+	if hlscount > 0 {
+		StatsGlobals.TotalHLSMonitoringPoints = hlscount
+		fmt.Printf("%d HLS monitors started.\n", hlscount)
+	} else {
+		println("No HLS monitors started.")
 	}
-	if count > 0 {
-		StatsGlobals.TotalHLSMonitoringPoints = count
-		fmt.Printf("%d HLS monitors started.\n", count)
+	if hdscount > 0 {
+		StatsGlobals.TotalHDSMonitoringPoints = hdscount
+		fmt.Printf("%d HDS monitors started.\n", hdscount)
+	} else {
+		println("No HDS monitors started.")
+	}
+	if httpcount > 0 {
+		StatsGlobals.TotalHTTPMonitoringPoints = httpcount
+		fmt.Printf("%d HTTP monitors started.\n", httpcount)
+	} else {
+		println("No HTTP monitors started.")
+	}
+	if wvcount > 0 {
+		StatsGlobals.TotalWVMonitoringPoints = wvcount
+		fmt.Printf("%d Widevine monitors started.\n", wvcount)
+	} else {
+		println("No Widevine monitors started.")
 	}
 
-	// for _, stream := range cfg.StreamsHDS {
-	// 	go StreamBox(ctl, stream, HDS, hdstasks, debugvars)
-	// }
-	// if len(cfg.StreamsHDS) > 0 {
-	// 	StatsGlobals.TotalHLSMonitoringPoints = len(cfg.StreamsHDS)
-	// 	fmt.Printf("%d HDS monitors started.\n", StatsGlobals.TotalHDSMonitoringPoints)
-	// }
-
-	// for _, stream := range cfg.StreamsHTTP {
-	// 	go StreamBox(ctl, stream, HTTP, httptasks, debugvars)
-	// }
-	// if len(cfg.StreamsHTTP) > 0 {
-	// 	StatsGlobals.TotalHTTPMonitoringPoints = len(cfg.StreamsHTTP)
-	// 	fmt.Printf("%d HTTP monitors started.\n", StatsGlobals.TotalHTTPMonitoringPoints)
-	// }
-
-	// for _, stream := range cfg.StreamsWV {
-	// 	go StreamBox(ctl, stream, WV, wvtasks, debugvars)
-	// }
-	// if len(cfg.StreamsWV) > 0 {
-	// 	StatsGlobals.TotalWVMonitoringPoints = len(cfg.StreamsWV)
-	// 	fmt.Printf("%d Widevine monitors started.\n", StatsGlobals.TotalWVMonitoringPoints)
-	// }
-
-	// StatsGlobals.TotalMonitoringPoints = len(cfg.StreamsHTTP) + len(cfg.StreamsHLS) + len(cfg.StreamsHDS)
+	StatsGlobals.TotalMonitoringPoints = hlscount + hdscount + httpcount + wvcount
 }
 
 // Мониторинг и статистика групп потоков.
@@ -324,7 +323,7 @@ func ExecHTTP(task *Task) *Result {
 		return result
 	}
 	client := NewTimeoutClient(cfg.Params(task.Group).ConnectTimeout*time.Second, cfg.Params(task.Group).RWTimeout*time.Second)
-	req, err := http.NewRequest(cfg.Params(task.Group).MethodHTTP, task.URI, nil) // TODO разделить метод по проберам
+	req, err := http.NewRequest("GET", task.URI, nil) // TODO разделить метод по проберам cfg.Params(task.Group).MethodHTTP
 	if err != nil {
 		fmt.Println(err)
 		result.ErrType = BADURI
@@ -337,6 +336,7 @@ func ExecHTTP(task *Task) *Result {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
+		fmt.Println(err)
 		if result.Elapsed >= cfg.Params(task.Group).ConnectTimeout*time.Second {
 			result.ErrType = CTIMEOUT
 		} else {
