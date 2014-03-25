@@ -95,7 +95,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 							splitted := strings.Split(task.URI, "/")
 							splitted[len(splitted)-1] = variant.URI
 							suburi := strings.Join(splitted, "/")
-							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Group}}
+							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Title, task.Group}}
 							go func(subtask *Task) {
 								subresult <- ExecHTTP(subtask)
 							}(subtask)

@@ -57,11 +57,11 @@ func main() {
 	InitConfig(*confname)
 
 	go ConfigKeeper()
-	go LogKeeper(*verbose)   // collect program logs and write them to file
-	go StatKeeper()          // collect probe statistics and may be queried by report builders
-	go StreamMonitor()       // probe logic
-	go ZabbixDiscoveryFile() // maintain discovery file for Zabbix
-	go HttpAPI()             // control API
+	go LogKeeper(*verbose) // collect program logs and write them to file
+	go StatKeeper()        // collect probe statistics and may be queried by report builders
+	go StreamMonitor()     // probe logic
+	//go ZabbixDiscoveryFile() // maintain discovery file for Zabbix
+	go HttpAPI() // control API
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)

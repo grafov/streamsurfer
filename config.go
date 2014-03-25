@@ -15,19 +15,14 @@ import (
 
 // parsed and validated config data
 type Config struct {
-	GroupParams      map[string]*configGroup
-	GroupStreams     map[string]*[]Stream
-	TotalProbersHLS  int
-	TotalProbersHDS  int
-	TotalProbersHTTP int
-	TotalProbersWV   int
-	TotalProbers     int
-	Stubs            configStub
-	Zabbix           configZabbix
-	Samples          []string
-	ListenHTTP       string
-	ErrorLog         string
-	IsReady          chan bool // config parsed and ready to use
+	GroupParams  map[string]*configGroup
+	GroupStreams map[string]*[]Stream
+	Stubs        configStub
+	Zabbix       configZabbix
+	Samples      []string
+	ListenHTTP   string
+	ErrorLog     string
+	IsReady      chan bool // config parsed and ready to use
 }
 
 // parsed grup config
@@ -52,7 +47,8 @@ type configGroup struct {
 type configZabbix struct {
 	DiscoveryPath   string   `yaml:"discovery-path,omitempty"`
 	DiscoveryGroups []string `yaml:"discovery-groups,omitempty"`
-	StreamTemplate  string   `yaml:"stream-template,omitempty"`
+	NameTemplate    string   `yaml:"name-template,omitempty"`
+	TitleTemplate   string   `yaml:"title-template,omitempty"`
 }
 
 // custom values for HTML-templates and reports
@@ -161,18 +157,6 @@ func parseGroupsConfig(rawcfg *configYAML) {
 
 	for gname, gdata := range rawcfg.Groups {
 		stype := String2StreamType(gdata.Type)
-		switch stype {
-		case HLS:
-			cfg.TotalProbersHLS++
-		case HDS:
-			cfg.TotalProbersHDS++
-		case HTTP:
-			cfg.TotalProbersHTTP++
-		case WV:
-			cfg.TotalProbersWV++
-		}
-		cfg.TotalProbers += gdata.Probers
-
 		cfg.GroupParams[gname] = &configGroup{
 			Type:                   stype,
 			Probers:                gdata.Probers,
@@ -234,8 +218,8 @@ func addRemoteConfig(dest *[]Stream, params *configGroup, group string, uri, rem
 			if err != nil {
 				break
 			}
-			uri, name := splitName(params.ParseMethod, line)
-			*dest = append(*dest, Stream{URI: uri, Type: params.Type, Name: name, Group: group})
+			uri, name, title := splitName(params.ParseMethod, line)
+			*dest = append(*dest, Stream{URI: uri, Type: params.Type, Name: name, Title: title, Group: group})
 		}
 	}
 	return err
@@ -244,8 +228,8 @@ func addRemoteConfig(dest *[]Stream, params *configGroup, group string, uri, rem
 // Helper. Parse config of
 func addLocalConfig(dest *[]Stream, params *configGroup, group string, sources []string) {
 	for _, source := range sources {
-		uri, name := splitName(params.ParseMethod, source)
-		*dest = append(*dest, Stream{URI: uri, Type: params.Type, Name: name, Group: group})
+		uri, name, title := splitName(params.ParseMethod, source)
+		*dest = append(*dest, Stream{URI: uri, Type: params.Type, Name: name, Title: title, Group: group})
 	}
 }
 
@@ -253,7 +237,7 @@ func addLocalConfig(dest *[]Stream, params *configGroup, group string, sources [
 // Supported both cases: title<space>uri and uri<space>title
 // If `re` presents then name parsed from uri by regular expression.
 // URI must be prepended by http:// or https://
-func splitName(re, source string) (uri string, name string) {
+func splitName(re, source string) (uri, name, title string) {
 	source = strings.TrimSpace(source)
 	sep := regexp.MustCompile("htt(p|ps)://")
 	loc := sep.FindStringIndex(source)
@@ -261,15 +245,15 @@ func splitName(re, source string) (uri string, name string) {
 		if loc[0] == 0 { // uri title
 			splitted := strings.SplitN(source, " ", 2)
 			if len(splitted) > 1 {
-				name = strings.TrimSpace(splitted[1])
+				title = strings.TrimSpace(splitted[1])
 			}
 			uri = strings.TrimSpace(splitted[0])
 		} else { // title uri
-			name = strings.TrimSpace(source[0:loc[0]])
+			title = strings.TrimSpace(source[0:loc[0]])
 			uri = source[loc[0]:]
 		}
-		if name == "" {
-			name = uri
+		if title == "" {
+			title = uri
 		}
 	}
 	if re != "" {
@@ -278,6 +262,8 @@ func splitName(re, source string) (uri string, name string) {
 		if len(vals) > 1 {
 			name = vals[1]
 		}
+	} else {
+		name = title
 	}
 	return
 }

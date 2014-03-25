@@ -66,7 +66,12 @@ func monError(res http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	if vars["group"] != "" && vars["stream"] != "" {
 		if !StatsGlobals.MonitoringState {
-			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
+			switch vars["astype"] { // пока мониторинг остановлен, считаем, что всё ок
+			case "str":
+				res.Write([]byte("success"))
+			case "int":
+				res.Write([]byte("0"))
+			}
 			return
 		}
 		if result, err := LoadLastStats(vars["group"], vars["stream"]); err == nil {
@@ -76,9 +81,13 @@ func monError(res http.ResponseWriter, req *http.Request) {
 			case "int":
 				res.Write([]byte(strconv.Itoa(int(result.ErrType))))
 			}
-		} else {
-			res.Write([]byte("0")) // пока проверки не проводились, считаем, что всё ок. Чего зря беспокоиться?
-			//http.Error(res, "0", http.StatusNotFound)
+		} else { // пока проверки не проводились, считаем, что всё ок. Чего зря беспокоиться?
+			switch vars["astype"] {
+			case "str":
+				res.Write([]byte("success"))
+			case "int":
+				res.Write([]byte("0"))
+			}
 		}
 	} else {
 		http.Error(res, "Bad parameters in query.", http.StatusBadRequest)

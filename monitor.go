@@ -28,6 +28,7 @@ func StreamMonitor() {
 	var executedWVTasks = expvar.NewInt("wv-tasks-done")
 	var expiredWVTasks = expvar.NewInt("wv-tasks-expired")
 	var hlscount, hdscount, wvcount, httpcount int
+	var hlsprobecount int
 
 	debugvars.Set("requested-tasks", requestedTasks)
 	debugvars.Set("hls-tasks-queue", queueSizeHLSTasks)
@@ -54,6 +55,7 @@ func StreamMonitor() {
 			gtasks := make(chan *Task)
 			for i := 0; i < gdata.Probers; i++ {
 				go CupertinoProber(ctl, gtasks, debugvars)
+				hlsprobecount++
 			}
 			gchunktasks := make(chan *Task)
 			for i := 0; i < gdata.MediaProbers; i++ {
@@ -97,26 +99,26 @@ func StreamMonitor() {
 		}
 	}
 
-	if cfg.TotalProbersHLS > 0 {
-		fmt.Printf("%d HLS probers started.\n", cfg.TotalProbersHLS)
+	if hlsprobecount > 0 {
+		fmt.Printf("%d HLS probers started.\n", hlsprobecount)
 	} else {
 		println("No HLS probers started.")
 	}
-	if cfg.TotalProbersHDS > 0 {
-		fmt.Printf("%d HDS probers started.\n", cfg.TotalProbersHDS)
-	} else {
-		println("No HDS probers started.")
-	}
-	if cfg.TotalProbersHTTP > 0 {
-		fmt.Printf("%d HTTP probers started.\n", cfg.TotalProbersHTTP)
-	} else {
-		println("No HTTP probers started.")
-	}
-	if cfg.TotalProbersWV > 0 {
-		fmt.Printf("%d Widevine VOD probers started.\n", cfg.TotalProbersWV)
-	} else {
-		println("No Widevine probers started.")
-	}
+	// if cfg.TotalProbersHDS > 0 {
+	// 	fmt.Printf("%d HDS probers started.\n", cfg.TotalProbersHDS)
+	// } else {
+	// 	println("No HDS probers started.")
+	// }
+	// if cfg.TotalProbersHTTP > 0 {
+	// 	fmt.Printf("%d HTTP probers started.\n", cfg.TotalProbersHTTP)
+	// } else {
+	// 	println("No HTTP probers started.")
+	// }
+	// if cfg.TotalProbersWV > 0 {
+	// 	fmt.Printf("%d Widevine VOD probers started.\n", cfg.TotalProbersWV)
+	// } else {
+	// 	println("No Widevine probers started.")
+	// }
 	if hlscount > 0 {
 		StatsGlobals.TotalHLSMonitoringPoints = hlscount
 		fmt.Printf("%d HLS monitors started.\n", hlscount)

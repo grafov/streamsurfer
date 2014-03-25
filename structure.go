@@ -73,6 +73,7 @@ type Stream struct {
 	URI   string
 	Type  StreamType
 	Name  string
+	Title string // опциональный заголовок = name по умолчанию
 	Group string
 }
 
