@@ -36,8 +36,8 @@ const (
 	VERYSLOW               // VerySlowWarning threshold on reading server response
 	TTLEXPIRED             // Task was not executed because task TTL expired.
 	ERROR_LEVEL            // Errors follow below:
-	RTIMEOUT               // Timeout on read
 	CTIMEOUT               // Timeout on connect
+	RTIMEOUT               // Timeout on read
 	BADLENGTH              // ContentLength value not equal real content length
 	BODYREAD               // Response body read error
 	CRITICAL_LEVEL         // Permanent errors level

@@ -21,8 +21,8 @@ func TimeoutDialer(config *HTTPConfig) func(net, addr string) (c net.Conn, err e
 			return nil, err
 		}
 		conn.SetDeadline(time.Now().Add(config.ReadWriteTimeout))
-		// tcp_conn := conn.(*net.TCPConn)
-		// tcp_conn.SetLinger(0) // because we have mass connnects/disconnects
+		tcp_conn := conn.(*net.TCPConn)
+		tcp_conn.SetLinger(0) // because we have mass connects/disconnects
 		return conn, nil
 	}
 }

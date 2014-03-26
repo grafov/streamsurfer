@@ -338,8 +338,8 @@ func ExecHTTP(task *Task) *Result {
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {
-		fmt.Println(err)
-		if result.Elapsed >= cfg.Params(task.Group).ConnectTimeout*time.Second {
+		fmt.Printf("Connect timeout %s: %v\n", result.Elapsed, err)
+		if result.Elapsed > cfg.Params(task.Group).ConnectTimeout*time.Second {
 			result.ErrType = CTIMEOUT
 		} else {
 			result.ErrType = REFUSED
