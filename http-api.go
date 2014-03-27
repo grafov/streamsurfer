@@ -30,18 +30,18 @@ func HttpAPI() {
 	// https://www.zabbix.com/documentation/ru/2.0/manual/discovery/low_level_discovery
 	// new API
 	r.HandleFunc("/zabbix-discovery", zabbixDiscovery()).Methods("GET", "HEAD") // discovery data for Zabbix for all groups
-	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET")
+	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET", "HEAD")
 
 	// строковое значение ошибки для выбранных группы и канала
-	r.HandleFunc("/mon/error/{group}/{stream}/{astype}", monError).Methods("GET")
+	r.HandleFunc("/mon/error/{group}/{stream}/{astype:int|str}", monError).Methods("GET", "HEAD")
 
 	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
-	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel}-{uptoerrlevel}", monErrorLevel).Methods("GET")
+	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel:[a-z]+}-{uptoerrlevel:[a-z]+}", monErrorLevel).Methods("GET")
 
 	// static and client side
-	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
-	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET")
-	r.Handle("/{{name}}.png", http.FileServer(http.Dir("pics"))).Methods("GET")
+	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET", "HEAD")
+	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET", "HEAD")
+	r.Handle("/{{name}}.png", http.FileServer(http.Dir("pics"))).Methods("GET", "HEAD")
 	fmt.Printf("Listen for API connections at %s\n", cfg.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.ListenHTTP,
@@ -102,19 +102,17 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
 
 	vars := mux.Vars(req)
-	if vars["type"] != "" && vars["group"] != "" && vars["stream"] != "" && vars["fromerrlevel"] != "" && vars["uptoerrlevel"] != "" {
+	if vars["group"] != "" && vars["stream"] != "" && vars["fromerrlevel"] != "" && vars["uptoerrlevel"] != "" {
 		if !StatsGlobals.MonitoringState {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
 			return
 		}
 		if result, err := LoadLastStats(vars["group"], vars["stream"]); err == nil {
-			from := int(String2StreamErr(vars["fromerrlevel"]))
-			to := int(String2StreamErr(vars["uptoerrlevel"]))
-			cur := int(result.ErrType)
+			cur := result.ErrType
 			switch {
-			case cur <= from:
+			case cur <= String2StreamErr(vars["fromerrlevel"]):
 				res.Write([]byte("0")) // OK
-			case cur >= to:
+			case cur >= String2StreamErr(vars["uptoerrlevel"]):
 				res.Write([]byte("2")) // FATAL
 			default:
 				res.Write([]byte("1")) // PROBLEM
