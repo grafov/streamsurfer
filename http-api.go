@@ -15,6 +15,11 @@ func HttpAPI() {
 	r := mux.NewRouter()
 	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
 	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
+
+	// Информация о потоке и статистика его работы
+	r.HandleFunc("/rpt/{group}/{stream}/info", ReportStreamInfo).Methods("GET")
+
+	// Obsoleted reports with old API:
 	// r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
 	// r.HandleFunc("/rprt/3hours", rprt3Hours).Methods("GET")
 	// r.HandleFunc("/rprt/last", rprtLast).Methods("GET")

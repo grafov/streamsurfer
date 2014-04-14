@@ -1,3 +1,4 @@
+// OBSOLETED by report.go
 // Web reports generator
 package main
 

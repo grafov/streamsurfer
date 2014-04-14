@@ -22,6 +22,13 @@
 
 package main
 
+/* TODO
+
+1. Для ассетов выдавать общий список одной страницей (плюс по группам). Ассет, график статусов за последнее время.
+2. Страница инфы по отдельному ассету.
+
+*/
+
 import (
 	"flag"
 	"fmt"
@@ -32,7 +39,7 @@ import (
 
 const (
 	SURFER  = "Stream Surfer"
-	VERSION = "0.2"
+	VERSION = "0.3-dev"
 )
 
 var build_date string
@@ -58,7 +65,7 @@ func main() {
 
 	go ConfigKeeper()
 	go LogKeeper(*verbose) // collect program logs and write them to file
-	go StatKeeper()        // collect probe statistics and may be queried by report builders
+	go StatKeeper()        // collect probe statistics for report builders
 	go StreamMonitor()     // probe logic
 	//go ZabbixDiscoveryFile() // maintain discovery file for Zabbix
 	go HttpAPI() // control API

@@ -80,10 +80,15 @@ func StatKeeper() {
 		case state := <-statIn: // receive new statitics data for saving
 			curstats[StatKey{state.Stream.Group, state.Stream.Name}] = state.Last
 			if _, ok := stats[StatKey{state.Stream.Group, state.Stream.Name}]; !ok {
-				stats[StatKey{state.Stream.Group, state.Stream.Name}] = make(map[time.Time]Result, 0)
+				stats[StatKey{state.Stream.Group, state.Stream.Name}] = make(map[time.Time]Result)
 			}
 			stats[StatKey{state.Stream.Group, state.Stream.Name}][state.Last.Started] = state.Last
 			debugStatsCount.Add(1)
+
+			/* TODO
+			Последние 30 минут лежат в памяти, остальное в редисе. Если редиса нет, глубокая статистика недоступна.
+
+			*/
 
 			// Дальше устаревшая статистика, надо выпилить
 			// Last check results for all streams
