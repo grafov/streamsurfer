@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"container/list"
 	"github.com/grafov/m3u8"
 	"net/http"
 	"time"
@@ -143,7 +144,7 @@ type StatInQuery struct {
 // запросы на получение статистики
 type StatOutQuery struct {
 	Key     StatKey
-	ReplyTo chan *Result
+	ReplyTo chan *list.List
 }
 
 type ErrHistoryKey struct {

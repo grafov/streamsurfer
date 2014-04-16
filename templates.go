@@ -20,6 +20,35 @@ const menu = `
     </div>
 `
 
+type TestMe struct {
+	Test int
+}
+
+var (
+	tReportStreamInfo = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stream Surfer Reports</title>
+<meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
+<link href="/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
+</head>
+<body>
+%s
+<h1>Reports are:</h1>
+ <ul>
+  {{range $i, $val := .}}
+  <li><a href="rprt/{{$i}}">{{$val}}</a></li>
+  {{end}}
+ </ul>
+</body>
+<a href="http://streamsurfer.org"><img src="/logo-64.png" /></a><br />
+</html>
+`
+)
+
 var (
 	ReportMainPageTemplate = fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">

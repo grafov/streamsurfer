@@ -3,8 +3,10 @@
 package main
 
 import (
+	"container/list"
 	"errors"
 	"expvar"
+	//"github.com/garyburd/redigo/redis"
 	"sync"
 	"time"
 )
@@ -66,23 +68,21 @@ map результатов по времени:
 // Elder
 func StatKeeper() {
 	var debugStatsCount = expvar.NewInt("stats-count")
+	var stats map[StatKey]*list.List = make(map[StatKey]*list.List)
 
-	statIn = make(chan StatInQuery, 8192)           // receive stats
-	statOut = make(chan StatOutQuery, 4)            // send stats
-	stats := make(map[StatKey]map[time.Time]Result) // global statistics with timestamps aligned to minutes
-	curstats := make(map[StatKey]Result)
+	statIn = make(chan StatInQuery, 8192) // receive stats
+	statOut = make(chan StatOutQuery, 4)  // send stats
 
 	// storage maintainance period
-	timer := time.Tick(4 * time.Second) // TODO 2 мин
+	timer := time.Tick(12 * time.Second)
 
 	for {
 		select {
 		case state := <-statIn: // receive new statitics data for saving
-			curstats[StatKey{state.Stream.Group, state.Stream.Name}] = state.Last
 			if _, ok := stats[StatKey{state.Stream.Group, state.Stream.Name}]; !ok {
-				stats[StatKey{state.Stream.Group, state.Stream.Name}] = make(map[time.Time]Result)
+				stats[StatKey{state.Stream.Group, state.Stream.Name}] = list.New()
 			}
-			stats[StatKey{state.Stream.Group, state.Stream.Name}][state.Last.Started] = state.Last
+			stats[StatKey{state.Stream.Group, state.Stream.Name}].PushFront(state.Last)
 			debugStatsCount.Add(1)
 
 			/* TODO
@@ -110,8 +110,8 @@ func StatKeeper() {
 			// }
 
 		case key := <-statOut:
-			if val, ok := curstats[key.Key]; ok {
-				key.ReplyTo <- &val
+			if val, ok := stats[key.Key]; ok {
+				key.ReplyTo <- val
 			} else {
 				key.ReplyTo <- nil
 			}
@@ -122,18 +122,16 @@ func StatKeeper() {
 				goto cleanupExit
 			}
 
-			for key, streamstats := range stats {
-				for moment := range streamstats {
-					if moment.Before(time.Now().Add(-3 * time.Hour)) {
-						delete(stats[key], moment)
+			for _, streamstats := range stats {
+				for e := streamstats.Front(); e != nil; e = e.Next() {
+					if time.Since(e.Value.(Result).Started) > 30*time.Minute {
+						streamstats.Remove(e)
 					}
 				}
 			}
-
 		cleanupExit:
 		}
 	}
-
 }
 
 // Put result of probe task to statistics.
@@ -143,7 +141,19 @@ func SaveStats(stream Stream, last *Result) {
 
 // Получить состояние по последней проверке.
 func LoadLastStats(group, stream string) (*Result, error) {
-	result := make(chan *Result)
+	result := make(chan *list.List)
+	statOut <- StatOutQuery{Key: StatKey{Group: group, Name: stream}, ReplyTo: result}
+	data := <-result
+	if data != nil {
+		return data.Front().Value.(*Result), nil
+	} else {
+		return nil, errors.New("result not found")
+	}
+}
+
+// Получить статистику по каналу за всё время наблюдения.
+func LoadHistoryStats(typ StreamType, group, stream string) (*list.List, error) {
+	result := make(chan *list.List)
 	statOut <- StatOutQuery{Key: StatKey{Group: group, Name: stream}, ReplyTo: result}
 	data := <-result
 	if data != nil {
@@ -151,9 +161,4 @@ func LoadLastStats(group, stream string) (*Result, error) {
 	} else {
 		return nil, errors.New("result not found")
 	}
-}
-
-// Получить статистику по каналу за всё время наблюдения.
-func LoadHistoryStats(typ StreamType, group Group, stream Stream) *[]Result {
-	return nil
 }
