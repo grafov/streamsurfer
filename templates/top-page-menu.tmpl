@@ -1,0 +1,13 @@
+{{define "top-page-menu"}}
+    <div class="navbar">
+    <div class="navbar-inner">
+    <a class="brand" href="/">Stream Surfer</a>
+    <ul class="nav">
+		{{if .IsStatus}}<li class="active">{{else}}<li>{{end}}<a href="/status">Status</a></li>
+		{{if .IsControl}}<li class="active">{{else}}<li>{{end}}<a href="/ctrl">Control</a></li>
+		{{if .IsReport}}<li class="active">{{else}}<li>{{end}}<a href="/rprt">Reports</a></li>
+    <li><a href="http://streamsurfer.org">Documentation</a></li>
+    </ul>
+    </div>
+    </div>
+{{end}}

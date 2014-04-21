@@ -183,9 +183,9 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 		task.ReadBody = false
 		// queueLimit = 42 // XXX
 	}
-	errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
-	errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
-	ctlrcv := ctl.Join()                           // управление мониторингом
+	// errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
+	// errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
+	ctlrcv := ctl.Join() // управление мониторингом
 
 	for {
 		select {
@@ -218,19 +218,19 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 				}
 			}
 
-			go SaveStats(stream, &result)
+			go SaveStats(stream, result)
 
-			curhour := result.Started.Format("06010215")
-			prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
-			errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
-			errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
+			// curhour := result.Started.Format("06010215")
+			// prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
+			// errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
+			// errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
 			max = int(cfg.Params(stream.Group).CheckBrokenTime)
 			min = int(cfg.Params(stream.Group).CheckBrokenTime / 4. * 3.)
 
 			switch {
 			// too much repeatable errors per hour:
-			case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6, errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
-				addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
+			// case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6, errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
+			// 	addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
 			// permanent error, not a timeout:
 			case result.ErrType > CRITICAL_LEVEL, result.ErrType == TTLEXPIRED:
 				addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
@@ -240,9 +240,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 			default:
 				addSleepToBrokenStream = 0
 			}
-			result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
-
-			go SaveStats(stream, &result)
+			//result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
 
 			if result.ErrType != TTLEXPIRED {
 				if result.ErrType >= WARNING_LEVEL {
@@ -268,7 +266,7 @@ func Heartbeat(ctl *bcast.Group) {
 
 	ctlsnr := ctl.Join()
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	for {
 		for _, uri := range cfg.Samples {
@@ -296,7 +294,7 @@ func Heartbeat(ctl *bcast.Group) {
 			}
 		}
 		previous = StatsGlobals.MonitoringState
-		time.Sleep(5 * time.Second)
+		time.Sleep(4 * time.Second)
 	}
 }
 
@@ -334,7 +332,7 @@ func ExecHTTP(task *Task) *Result {
 		result.ContentLength = -1
 		return result
 	}
-	req.Header.Set("User-Agent", SURFER)
+	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", SURFER, VERSION))
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {

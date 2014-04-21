@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/grafov/bcast"
 	"github.com/grafov/m3u8"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -75,9 +76,9 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 		}
 	}()
 
+	queueCount := debugvars.Get("hls-tasks-queue")
+	queueCount.(*expvar.Int).Set(int64(len(tasks)))
 	for {
-		queueCount := debugvars.Get("hls-tasks-queue")
-		queueCount.(*expvar.Int).Set(int64(len(tasks)))
 		task := <-tasks
 		if time.Now().Before(task.TTL) {
 			result = ExecHTTP(task)
@@ -88,25 +89,44 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 				} else {
 					switch listType {
 					case m3u8.MASTER:
-						//fmt.Printf("%+v\n", playlist)
 						m := playlist.(*m3u8.MasterPlaylist)
 						subresult := make(chan *Result, 24)
+						mainuri, err := url.Parse(task.URI)
+						if err != nil {
+							result.ErrType = UNKERR
+							goto End
+						}
 						for _, variant := range m.Variants {
-							splitted := strings.Split(task.URI, "/")
-							splitted[len(splitted)-1] = variant.URI
-							suburi := strings.Join(splitted, "/")
-							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Title, task.Group}}
+							uri, err := url.Parse(variant.URI)
+							if err != nil {
+								subresult <- &Result{Task: &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Title, task.Group}}, ErrType: BADURI, Started: time.Now()}
+								continue
+							}
+							var suburi string
+							if uri.IsAbs() { // absolute URI
+								suburi = variant.URI
+							} else { // relative URI
+								if variant.URI[0] == '/' { // from the root
+									suburi = fmt.Sprintf("%s%s", mainuri.Host, variant.URI)
+								} else { // last element
+									splitted := strings.Split(task.URI, "/")
+									splitted[len(splitted)-1] = variant.URI
+									suburi = strings.Join(splitted, "/")
+								}
+							}
+							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Title, task.Group}, ReadBody: task.ReadBody, TTL: task.TTL}
 							go func(subtask *Task) {
 								subresult <- ExecHTTP(subtask)
 							}(subtask)
-
-							//tasks <- task
-							// XXX
 						}
-						select {
-						case data := <-subresult:
-							result.SubResults = append(result.SubResults, data)
-						case <-time.After(60 * time.Second):
+						taskCount := len(m.Variants)
+						for taskCount > 0 {
+							select {
+							case data := <-subresult:
+								result.SubResults = append(result.SubResults, *data)
+							case <-time.After(60 * time.Second):
+							}
+							taskCount--
 						}
 					case m3u8.MEDIA:
 						p := playlist.(*m3u8.MediaPlaylist)
@@ -121,7 +141,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 			result = TaskExpired(task)
 			debugvars.Add("hls-tasks-expired", 1)
 		}
-
+	End:
 		task.ReplyTo <- *result
 		debugvars.Add("hls-tasks-done", 1)
 	}

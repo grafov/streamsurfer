@@ -3,7 +3,6 @@ package main
 
 import (
 	"bytes"
-	"container/list"
 	"github.com/grafov/m3u8"
 	"net/http"
 	"time"
@@ -30,12 +29,12 @@ const (
 const (
 	SUCCESS        ErrType = iota
 	DEBUG_LEVEL            // Internal debug messages follow below:
+	TTLEXPIRED             // Task was not executed because task TTL expired. StreamSurfer too busy.
 	HLSPARSER              // HLS parser error (debug)
 	BADREQUEST             // Request failed (internal client error)
 	WARNING_LEVEL          // Warnings follow below:
 	SLOW                   // SlowWarning threshold on reading server response
 	VERYSLOW               // VerySlowWarning threshold on reading server response
-	TTLEXPIRED             // Task was not executed because task TTL expired.
 	ERROR_LEVEL            // Errors follow below:
 	CTIMEOUT               // Timeout on connect
 	RTIMEOUT               // Timeout on read
@@ -116,7 +115,7 @@ type Result struct {
 	Elapsed           time.Duration // понадобилось времени на задачу
 	TotalErrs         uint
 	Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
-	SubResults        []*Result   // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
+	SubResults        []Result    // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
 }
 
 type MetaHLS struct {
@@ -144,7 +143,7 @@ type StatInQuery struct {
 // запросы на получение статистики
 type StatOutQuery struct {
 	Key     StatKey
-	ReplyTo chan *list.List
+	ReplyTo chan []Result
 }
 
 type ErrHistoryKey struct {

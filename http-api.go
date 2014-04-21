@@ -6,18 +6,34 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"os"
 	"strconv"
+	"text/template"
 	"time"
 )
 
+var Page *template.Template
+
 // Elder.
 func HttpAPI() {
+	var err error
+
+	Page, err = template.ParseGlob("templates/*.tmpl")
+	if err != nil {
+		fmt.Printf("Error in template with error %s", err)
+		os.Exit(1)
+	}
+
 	r := mux.NewRouter()
 	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
 	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
 
-	// Информация о потоке и статистика его работы
-	r.HandleFunc("/rpt/{group}/{stream}/info", ReportStreamInfo).Methods("GET")
+	// Информация о потоке и сводная статистика
+	r.HandleFunc("/rpt/{group}/{stream}", ReportStreamInfo).Methods("GET")
+	// История ошибок
+	r.HandleFunc("/rpt/{group}/{stream}/history", ReportStreamHistory).Methods("GET")
+	// Вывод результата проверки
+	r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}", ReportStreamHistory).Methods("GET")
 
 	// Obsoleted reports with old API:
 	// r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
@@ -202,4 +218,10 @@ func expvarHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
 	})
 	fmt.Fprintf(w, "\n}\n")
+}
+
+func setupHTTP(w *http.ResponseWriter, r *http.Request) map[string]string {
+	(*w).Header().Set("Server", SURFER)
+
+	return mux.Vars(r)
 }

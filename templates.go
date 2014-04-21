@@ -1,4 +1,4 @@
-// Templates for webpages
+// Templates for webui
 package main
 
 import (
@@ -25,8 +25,7 @@ type TestMe struct {
 }
 
 var (
-	tReportStreamInfo = `
-<!DOCTYPE html>
+	tmpltReportStreamInfo = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -36,7 +35,6 @@ var (
 <link href="/css/custom.css" rel="stylesheet">
 </head>
 <body>
-%s
 <h1>Reports are:</h1>
  <ul>
   {{range $i, $val := .}}
@@ -47,7 +45,30 @@ var (
 <a href="http://streamsurfer.org"><img src="/logo-64.png" /></a><br />
 </html>
 `
+
+	tmpltReportStreamHistory = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stream Surfer Reports</title>
+<meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
+<link href="/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
+</head>
+<body>
+<h1>Errors per 3 hours for all groups</h1>
+<table class="table table-bordered table-condensed">
+        <thead>
+          <tr>
+</table>
+</body>
+<a href="http://streamsurfer.org"><img src="/logo-64.png" /></a><br />
+</html>
+`
 )
+
+/// ниже устаревшие шаблоны ///////////////////////////////////////////////////////////////////////////////
+/// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
 var (
 	ReportMainPageTemplate = fmt.Sprintf(`<!DOCTYPE html>
