@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -127,5 +128,19 @@ func String2StreamErr(s string) ErrType {
 		return REFUSED
 	default:
 		return UNKERR
+	}
+}
+
+// Helper to make a href.
+// First arg must be URL, second is text.
+// Optional args is title (3d) and class (4d).
+func href(url, text string, opts ...string) string {
+	switch len(opts) {
+	case 1:
+		return fmt.Sprintf("<a title=\"%s\" href=\"%s\">%s</a>", opts[0], url, text)
+	case 2:
+		return fmt.Sprintf("<a title=\"%s\" class=\"%s\" href=\"%s\">%s</a>", opts[0], opts[1], url, text)
+	default:
+		return fmt.Sprintf("<a href=\"%s\">%s</a>", url, text)
 	}
 }

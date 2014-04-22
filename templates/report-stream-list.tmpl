@@ -1,0 +1,26 @@
+{{define "report-stream-list"}}
+{{template "page-header" .}}
+<h1>{{.title}}</h1>
+
+<table class="table table-bordered table-condensed">
+      <thead>
+          <tr>
+  {{range $i, $val := .thead}}
+					<th>
+					{{$val}}
+					</th>
+  {{end}}
+					</tr>
+		  </thead>
+			<tbody>
+	{{range $i, $row := .tbody}}
+	    <tr>
+		{{range $j, $col := $row}}
+		  <td>{{$col}}</td>
+		{{end}}
+		  </tr>
+	{{end}}
+	    </tbody>
+</table>
+{{template "page-footer" .}}
+{{end}}

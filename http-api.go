@@ -28,6 +28,10 @@ func HttpAPI() {
 	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
 	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
 
+	// Show stream list for all groups
+	r.HandleFunc("/rpt", ReportStreams).Methods("GET")
+	// Show stream list for the group
+	r.HandleFunc("/rpt/{group}", ReportStreams).Methods("GET")
 	// Информация о потоке и сводная статистика
 	r.HandleFunc("/rpt/{group}/{stream}", ReportStreamInfo).Methods("GET")
 	r.HandleFunc("/rpt/{group}/{stream}/", ReportStreamInfo).Methods("GET")

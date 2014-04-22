@@ -5,20 +5,39 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
-type PageMeta struct {
-	Title     string
-	IsStatus  bool
-	IsControl bool
-	IsReport  bool
-}
+func ReportStreams(res http.ResponseWriter, req *http.Request) {
+	var tbody [][]string
 
-type PageTable struct {
-	PageMeta
-	Head []string
-	Body [][]string
+	vars := setupHTTP(&res, req)
+	data := make(map[string]interface{})
+	if vars["group"] != "" {
+		data["title"] = fmt.Sprintf("List of streams for %s", vars["group"])
+	} else {
+		data["title"] = "List of streams"
+	}
+	if vars["group"] != "" {
+		data["thead"] = []string{"Name", "Checks", "Errors"}
+	} else {
+		data["thead"] = []string{"Group", "Name", "Checks", "Errors"}
+	}
+	data["isreport"] = true
+	for gname := range cfg.GroupParams {
+		if vars["group"] != "" && gname != strings.ToLower(vars["group"]) {
+			continue
+		}
+		for _, stream := range *cfg.GroupStreams[gname] {
+			tbody = append(tbody,
+				[]string{href(fmt.Sprintf("/rpt/%s", gname), gname),
+					href(fmt.Sprintf("/rpt/%s/%s", gname, stream.Name), stream.Name),
+					"0", "0"})
+		}
+	}
+	data["tbody"] = tbody
+	Page.ExecuteTemplate(res, "report-stream-list", data)
 }
 
 func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
@@ -118,7 +137,7 @@ FullHistory:
 				val.HTTPStatus,
 				val.Elapsed.String(),
 				strconv.FormatInt(val.ContentLength, 10),
-				fmt.Sprintf("<a href=\"%d/raw\">show raw result</a>", val.Started.UnixNano())})
+				href(fmt.Sprintf("%d/raw", val.Started.UnixNano()), "show raw result")})
 		for idx, sub := range val.SubResults {
 			switch {
 			case sub.ErrType == SUCCESS:
@@ -138,7 +157,7 @@ FullHistory:
 					sub.HTTPStatus,
 					sub.Elapsed.String(),
 					strconv.FormatInt(sub.ContentLength, 10),
-					fmt.Sprintf("<a href=\"%d/%d/raw\">show raw result</a>", val.Started.UnixNano(), idx)})
+					href(fmt.Sprintf("%d/%d/raw", val.Started.UnixNano(), idx), "show raw result")})
 		}
 	}
 	data["tbody"] = tbody
