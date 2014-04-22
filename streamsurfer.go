@@ -67,22 +67,12 @@ func main() {
 	go LogKeeper(*verbose) // collect program logs and write them to file
 	go StatKeeper()        // collect probe statistics for report builders
 	go StreamMonitor()     // probe logic
-	//go ZabbixDiscoveryFile() // maintain discovery file for Zabbix
-	go HttpAPI() // control API
+	go HttpAPI()           // control API
+	go ProblemAnalyzer()   // analyze problems related to groups of channels
+	go ProblemReporter()   // report problems to email
 
 	terminate := make(chan os.Signal)
 	signal.Notify(terminate, os.Interrupt)
 	<-terminate
 	fmt.Println("...probe service interrupted.")
-}
-
-// Top level problem analyzer
-// It accept errors from streams and stream groups
-func ProblemAnalyzer() {
-
-}
-
-// Report found problems from problem analyzer
-// Maybe several methods to report problems of different prirority
-func ProblemReporter() {
 }

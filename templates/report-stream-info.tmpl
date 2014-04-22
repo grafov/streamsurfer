@@ -1,16 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Stream Surfer Reports</title>
-<meta name="description" content="Creating a table with Twitter Bootstrap. Learn how to use Twitter Bootstrap toolkit to create Tables with examples.">
-<link href="/css/bootstrap.min.css" rel="stylesheet">
-<link href="/css/custom.css" rel="stylesheet">
-</head>
-<body>
-<h1>Reports are:</h1>
- <ul>
-  {{range $i, $val := .}}
-  <li><a href="rprt/{{$i}}">{{$val}}</a></li>
-  {{end}}
- </ul>
+{{define "report-stream-info"}}
+{{template "page-header" .}}
+<h1>{{.title}}</h1>
+
+<a class="btn" href="{{.history}}">show checks history</a><br />
+
+<h2>Stream information</h2>
+<table class="table table-bordered">
+<tbody>
+<tr><td>Top level URL</td><td>{{.url}}</td>
+<tr><td>Playlist type</td><td>LIVE</td>
+<tr><td>Profiles in master playlist</td><td>3</td>
+<tr><td>Target duration in a media playlists</td><td>6s</td>
+<tr><td>Occured chunks duration (min/max)</td><td>6.000s - 6.000s</td>
+</tbody>
+</table>
+
+<h2>Problem statistics</h2>
+For the all time of monitoring.
+<table class="table table-bordered">
+<tr><td>Slow responses</td><td>{{.slowcount}}</td>
+<tr><td>Timeouts</td><td>{{.timeoutcount}}</td>
+<tr><td>HTTP connection errors</td><td>{{.httpcount}}</td>
+<tr><td>Playlist errors</td><td>{{.formatcount}}</td>
+<tbody>
+</tbody>
+</table>
+
+<h2>Check configuration</h2>
+<table class="table table-bordered">
+<tr><td>Template for checks</td><td>HLS</td>
+<tr><td>Time between checks</td><td>15s</td>
+<tr><td>Used probers for the group</td><td>1</td>
+<tbody>
+</tbody>
+</table>
+
+<h2>Reports about problems</h2>
+
+{{template "page-footer" .}}
+{{end}}

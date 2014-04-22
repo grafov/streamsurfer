@@ -16,7 +16,7 @@ import (
 // parsed and validated config data
 type Config struct {
 	GroupParams  map[string]*configGroup
-	GroupStreams map[string]*[]Stream
+	GroupStreams map[string]*[]Stream // map[groupname]stream
 	Stubs        configStub
 	Zabbix       configZabbix
 	Samples      []string

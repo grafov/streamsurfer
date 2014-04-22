@@ -107,7 +107,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 								suburi = variant.URI
 							} else { // relative URI
 								if variant.URI[0] == '/' { // from the root
-									suburi = fmt.Sprintf("%s%s", mainuri.Host, variant.URI)
+									suburi = fmt.Sprintf("%s://%s%s", mainuri.Scheme, mainuri.Host, variant.URI)
 								} else { // last element
 									splitted := strings.Split(task.URI, "/")
 									splitted[len(splitted)-1] = variant.URI

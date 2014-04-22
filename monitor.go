@@ -381,3 +381,51 @@ func verifyHLS(cfg *Config, task *Task, result *Result) {
 // func RateLimiter() {
 
 // }
+
+type ProblemConclusion struct {
+	Error   ErrType
+	Message string
+}
+
+// Анализирует проблемы связей между отдельными потоками и группы потоков на серверах.
+func ProblemAnalyzer() {
+	var conclusion ProblemConclusion
+	for {
+		time.Sleep(30 * time.Second)
+		for gname, gdata := range cfg.GroupParams {
+			for _, stream := range *cfg.GroupStreams[gname] {
+				hist, err := LoadHistoryStats(Key{gname, stream.Name})
+				if err != nil {
+					continue
+				}
+				switch gdata.Type {
+				case HLS:
+					conclusion = AnalyzeHLS(hist)
+				case HDS:
+					conclusion = AnalyzeHDS(hist)
+				case HTTP:
+					conclusion = AnalyzeHTTP(hist)
+				}
+			}
+			fmt.Printf("%v\n", conclusion)
+			// TODO дополнительно делать анализ для всей группы
+		}
+	}
+}
+
+func AnalyzeHLS(hist *[]Result) ProblemConclusion {
+	return ProblemConclusion{}
+}
+
+func AnalyzeHDS(hist *[]Result) ProblemConclusion {
+	return ProblemConclusion{}
+}
+
+func AnalyzeHTTP(hist *[]Result) ProblemConclusion {
+	return ProblemConclusion{}
+}
+
+// Report found problems from problem analyzer
+// Maybe several methods to report problems of different prirority
+func ProblemReporter() {
+}

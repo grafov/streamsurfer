@@ -6,7 +6,6 @@ import (
 	"errors"
 	"expvar"
 	//"github.com/garyburd/redigo/redis"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -49,18 +48,18 @@ var ErrTotalHistory = struct {
 
 type Incident struct {
 	Id uint64
-	StatKey
+	Key
 	Error *Result
 }
 
 /* Структуры данных для статистики:
 
 map текущих состояний:
- StatKey{Type, Group, Name}
+ Key{Type, Group, Name}
   Result
 
 map результатов по времени:
- StatKey{Type, Group, Name}
+ Key{Type, Group, Name}
   time.Time
     Result
 */
@@ -68,7 +67,7 @@ map результатов по времени:
 // Elder
 func StatKeeper() {
 	var debugStatsCount = expvar.NewInt("stats-count")
-	var stats map[StatKey][]Result = make(map[StatKey][]Result)
+	var stats map[Key][]Result = make(map[Key][]Result)
 
 	statIn = make(chan StatInQuery, 8192) // receive stats
 	statOut = make(chan StatOutQuery, 4)  // send stats
@@ -79,21 +78,20 @@ func StatKeeper() {
 	for {
 		select {
 		case state := <-statIn: // receive new statitics data for saving
-			stats[StatKey{state.Stream.Group, state.Stream.Name}] = append(stats[StatKey{state.Stream.Group, state.Stream.Name}], state.Last)
+			stats[Key{state.Stream.Group, state.Stream.Name}] = append(stats[Key{state.Stream.Group, state.Stream.Name}], state.Last)
 			debugStatsCount.Add(1)
-			// if _, ok := stats[StatKey{state.Stream.Group, state.Stream.Name}]; !ok {
-			// 	//stats[StatKey{state.Stream.Group, state.Stream.Name}] = list.New()
-			// 	stats[StatKey{state.Stream.Group, state.Stream.Name}] = state.Last
+			// if _, ok := stats[Key{state.Stream.Group, state.Stream.Name}]; !ok {
+			// 	//stats[Key{state.Stream.Group, state.Stream.Name}] = list.New()
+			// 	stats[Key{state.Stream.Group, state.Stream.Name}] = state.Last
 			// } else {
-			// 	// stats[StatKey{state.Stream.Group, state.Stream.Name}].PushFront(state.Last)
-			// 	stats[StatKey{state.Stream.Group, state.Stream.Name}] = append(stats[StatKey{state.Stream.Group, state.Stream.Name}], state.Last)
+			// 	// stats[Key{state.Stream.Group, state.Stream.Name}].PushFront(state.Last)
+			// 	stats[Key{state.Stream.Group, state.Stream.Name}] = append(stats[Key{state.Stream.Group, state.Stream.Name}], state.Last)
 			// 	debugStatsCount.Add(1)
 			// }
 			/* TODO
 			Последние 30 минут лежат в памяти, остальное в редисе. Если редиса нет, глубокая статистика недоступна.
 
 			*/
-			fmt.Printf("%+v\n", state.Last.SubResults)
 		case key := <-statOut:
 			if val, ok := stats[key.Key]; ok {
 				key.ReplyTo <- val
@@ -112,9 +110,10 @@ func StatKeeper() {
 				// 		streamstats.Remove(e)
 				// 	}
 				// }
-				for idx, val := range streamstats {
-					if time.Since(val.Started) > 3*time.Minute {
-						streamstats = append(streamstats[0:idx], streamstats[idx:]...)
+				// XXX очистка не работает!
+				for _, val := range streamstats {
+					if time.Since(val.Started) >= 2*time.Minute {
+						streamstats = streamstats[1:] // we have ordered by time list
 					}
 				}
 			}
@@ -129,9 +128,9 @@ func SaveStats(stream Stream, last Result) {
 }
 
 // Получить состояние по последней проверке.
-func LoadLastStats(group, stream string) (*Result, error) {
+func LoadLastStats(key Key) (*Result, error) {
 	result := make(chan []Result)
-	statOut <- StatOutQuery{Key: StatKey{Group: group, Name: stream}, ReplyTo: result}
+	statOut <- StatOutQuery{Key: key, ReplyTo: result}
 	data := <-result
 	if data != nil {
 		return &data[len(data)-1], nil
@@ -141,9 +140,9 @@ func LoadLastStats(group, stream string) (*Result, error) {
 }
 
 // Получить статистику по каналу за всё время наблюдения.
-func LoadHistoryStats(group, stream string) (*[]Result, error) {
+func LoadHistoryStats(key Key) (*[]Result, error) {
 	result := make(chan []Result)
-	statOut <- StatOutQuery{Key: StatKey{Group: group, Name: stream}, ReplyTo: result}
+	statOut <- StatOutQuery{Key: key, ReplyTo: result}
 	data := <-result
 	if data != nil {
 		return &data, nil

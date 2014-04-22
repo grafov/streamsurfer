@@ -30,10 +30,15 @@ func HttpAPI() {
 
 	// Информация о потоке и сводная статистика
 	r.HandleFunc("/rpt/{group}/{stream}", ReportStreamInfo).Methods("GET")
+	r.HandleFunc("/rpt/{group}/{stream}/", ReportStreamInfo).Methods("GET")
 	// История ошибок
 	r.HandleFunc("/rpt/{group}/{stream}/history", ReportStreamHistory).Methods("GET")
-	// Вывод результата проверки
-	r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}", ReportStreamHistory).Methods("GET")
+	// Вывод результата проверки для мастер-плейлиста
+	r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+	// Вывод результата проверки для вложенных проверок
+	r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+	// Вывод описания ошибки из анализатора
+	//r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}", ReportStreamError).Methods("GET")
 
 	// Obsoleted reports with old API:
 	// r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
@@ -95,7 +100,7 @@ func monError(res http.ResponseWriter, req *http.Request) {
 			}
 			return
 		}
-		if result, err := LoadLastStats(vars["group"], vars["stream"]); err == nil {
+		if result, err := LoadLastStats(Key{vars["group"], vars["stream"]}); err == nil {
 			switch vars["astype"] {
 			case "str":
 				res.Write([]byte(StreamErr2String(result.ErrType)))
@@ -128,7 +133,7 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
 			return
 		}
-		if result, err := LoadLastStats(vars["group"], vars["stream"]); err == nil {
+		if result, err := LoadLastStats(Key{vars["group"], vars["stream"]}); err == nil {
 			cur := result.ErrType
 			switch {
 			case cur <= String2StreamErr(vars["fromerrlevel"]):

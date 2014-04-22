@@ -41,7 +41,7 @@ const (
 	BADLENGTH              // ContentLength value not equal real content length
 	BODYREAD               // Response body read error
 	CRITICAL_LEVEL         // Permanent errors level
-	REFUSED                // Connectin refused
+	REFUSED                // Connection refused
 	BADSTATUS              // HTTP Status >= 400
 	BADURI                 // Incorret URI format
 	LISTEMPTY              // HLS specific (by m3u8 lib)
@@ -129,7 +129,7 @@ type MetaHDS struct {
 }
 
 // ключ для статистики
-type StatKey struct {
+type Key struct {
 	Group string
 	Name  string
 }
@@ -142,7 +142,7 @@ type StatInQuery struct {
 
 // запросы на получение статистики
 type StatOutQuery struct {
-	Key     StatKey
+	Key     Key
 	ReplyTo chan []Result
 }
 
