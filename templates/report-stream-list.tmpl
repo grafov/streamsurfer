@@ -14,9 +14,10 @@
 		  </thead>
 			<tbody>
 	{{range $i, $row := .tbody}}
-	    <tr>
 		{{range $j, $col := $row}}
-		  <td>{{$col}}</td>
+		  {{if $j}}<td>{{$col}}</td>{{/* окраска строк по уровню ошибок */}}
+			{{else}}<tr class="{{$col}}">
+			{{end}}
 		{{end}}
 		  </tr>
 	{{end}}

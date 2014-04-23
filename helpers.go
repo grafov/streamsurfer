@@ -144,3 +144,8 @@ func href(url, text string, opts ...string) string {
 		return fmt.Sprintf("<a href=\"%s\">%s</a>", url, text)
 	}
 }
+
+//
+func span(text, class string) string {
+	return fmt.Sprintf("<span class=\"%s\">%s</span>", class, text)
+}

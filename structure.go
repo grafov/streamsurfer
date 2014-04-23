@@ -81,8 +81,9 @@ type Stream struct {
 type Task struct {
 	Stream
 	ReadBody bool
-	ReplyTo  chan Result
+	ReplyTo  chan *Result
 	TTL      time.Time // valid until the time
+	Tid      int64     // task id (unique for each stream box)
 }
 
 type VariantTask struct {
@@ -115,7 +116,14 @@ type Result struct {
 	Elapsed           time.Duration // понадобилось времени на задачу
 	TotalErrs         uint
 	Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
-	SubResults        []Result    // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
+	Pid               *Result     // link to parent check (is nil for top level URLs)
+	SubResults        []*Result   // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
+}
+
+// StreamBox statistics
+type Stats struct {
+	Checks int64 // checks made
+	Errors int64 // total errors
 }
 
 type MetaHLS struct {
@@ -137,13 +145,25 @@ type Key struct {
 // запросы на сохранение статистики
 type StatInQuery struct {
 	Stream Stream
-	Last   Result
+	Last   Stats
 }
 
 // запросы на получение статистики
 type StatOutQuery struct {
 	Key     Key
-	ReplyTo chan []Result
+	ReplyTo chan *Stats
+}
+
+// запросы на сохранение статистики
+type ResultInQuery struct {
+	Stream Stream
+	Last   *Result
+}
+
+// запросы на получение статистики
+type ResultOutQuery struct {
+	Key     Key
+	ReplyTo chan []*Result
 }
 
 type ErrHistoryKey struct {

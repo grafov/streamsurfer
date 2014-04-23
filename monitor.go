@@ -158,7 +158,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 	var min, max int
 	var command Command
 	var online bool = false
-	//	var queueLimit uint
+	var taskid int64
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -166,25 +166,19 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 		}
 	}()
 
-	task := &Task{Stream: stream, ReplyTo: make(chan Result)}
+	task := &Task{Stream: stream, ReplyTo: make(chan *Result)}
 	switch streamType {
 	case HTTP:
 		task.ReadBody = false
-	//	queueLimit = cfg.Params.ProbersHTTP
 	case HLS:
 		task.ReadBody = true
-		// queueLimit = cfg.Params.ProbersHLS
 	case HDS:
 		task.ReadBody = true
-		// queueLimit = cfg.Params.ProbersHDS
 	case WV:
 		task.ReadBody = false
 	default:
 		task.ReadBody = false
-		// queueLimit = 42 // XXX
 	}
-	// errhistory := make(map[ErrHistoryKey]uint)     // duplicates ErrHistory from stats
-	// errtotals := make(map[ErrTotalHistoryKey]uint) // duplicates ErrTotalHistory from stats
 	ctlrcv := ctl.Join() // управление мониторингом
 
 	for {
@@ -206,6 +200,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 			min = int(cfg.Params(stream.Group).TimeBetweenTasks / 4. * 3.)
 			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Second + addSleepToBrokenStream) // randomize streams order
 			task.TTL = time.Now().Add(time.Duration(cfg.Params(stream.Group).TaskTTL * time.Second))
+			taskid++ // TODO potentially overflow
 			taskq <- task
 			debugvars.Add("requested-tasks", 1)
 			result := <-task.ReplyTo
@@ -218,19 +213,16 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 				}
 			}
 
-			go SaveStats(stream, result)
+			for _, subres := range result.SubResults {
+				subres.Pid = result
+				go SaveResult(stream, subres)
+			}
+			go SaveResult(stream, result)
 
-			// curhour := result.Started.Format("06010215")
-			// prevhour := result.Started.Add(-1 * time.Hour).Format("06010215")
-			// errhistory[ErrHistoryKey{Curhour: curhour, ErrType: result.ErrType}]++
-			// errtotals[ErrTotalHistoryKey{Curhour: curhour}]++
 			max = int(cfg.Params(stream.Group).CheckBrokenTime)
 			min = int(cfg.Params(stream.Group).CheckBrokenTime / 4. * 3.)
 
 			switch {
-			// too much repeatable errors per hour:
-			// case errtotals[ErrTotalHistoryKey{Curhour: curhour}] > 6, errtotals[ErrTotalHistoryKey{Curhour: prevhour}] > 6:
-			// 	addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
 			// permanent error, not a timeout:
 			case result.ErrType > CRITICAL_LEVEL, result.ErrType == TTLEXPIRED:
 				addSleepToBrokenStream = time.Duration(rand.Intn(max-min)+min) * time.Second
@@ -240,18 +232,17 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 			default:
 				addSleepToBrokenStream = 0
 			}
-			//result.TotalErrs = errtotals[ErrTotalHistoryKey{Curhour: curhour}]
 
 			if result.ErrType != TTLEXPIRED {
 				if result.ErrType >= WARNING_LEVEL {
-					go Log(ERROR, stream, result)
+					go Log(ERROR, stream, *result)
 				} else {
 					if result.Elapsed >= cfg.Params(stream.Group).VerySlowWarningTimeout*time.Second {
 						result.ErrType = VERYSLOW
-						go Log(WARNING, stream, result)
+						go Log(WARNING, stream, *result)
 					} else if result.Elapsed >= cfg.Params(stream.Group).SlowWarningTimeout*time.Second {
 						result.ErrType = SLOW
-						go Log(WARNING, stream, result)
+						go Log(WARNING, stream, *result)
 					}
 				}
 			}
@@ -381,51 +372,3 @@ func verifyHLS(cfg *Config, task *Task, result *Result) {
 // func RateLimiter() {
 
 // }
-
-type ProblemConclusion struct {
-	Error   ErrType
-	Message string
-}
-
-// Анализирует проблемы связей между отдельными потоками и группы потоков на серверах.
-func ProblemAnalyzer() {
-	var conclusion ProblemConclusion
-	for {
-		time.Sleep(30 * time.Second)
-		for gname, gdata := range cfg.GroupParams {
-			for _, stream := range *cfg.GroupStreams[gname] {
-				hist, err := LoadHistoryStats(Key{gname, stream.Name})
-				if err != nil {
-					continue
-				}
-				switch gdata.Type {
-				case HLS:
-					conclusion = AnalyzeHLS(hist)
-				case HDS:
-					conclusion = AnalyzeHDS(hist)
-				case HTTP:
-					conclusion = AnalyzeHTTP(hist)
-				}
-			}
-			fmt.Printf("%v\n", conclusion)
-			// TODO дополнительно делать анализ для всей группы
-		}
-	}
-}
-
-func AnalyzeHLS(hist *[]Result) ProblemConclusion {
-	return ProblemConclusion{}
-}
-
-func AnalyzeHDS(hist *[]Result) ProblemConclusion {
-	return ProblemConclusion{}
-}
-
-func AnalyzeHTTP(hist *[]Result) ProblemConclusion {
-	return ProblemConclusion{}
-}
-
-// Report found problems from problem analyzer
-// Maybe several methods to report problems of different prirority
-func ProblemReporter() {
-}

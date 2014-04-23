@@ -33,7 +33,7 @@ func SimpleProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 			result = TaskExpired(task)
 			debugvars.Add("http-tasks-expired", 1)
 		}
-		task.ReplyTo <- *result
+		task.ReplyTo <- result
 	}
 }
 
@@ -60,7 +60,7 @@ func WidevineProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 			result = TaskExpired(task)
 			debugvars.Add("wv-tasks-expired", 1)
 		}
-		task.ReplyTo <- *result
+		task.ReplyTo <- result
 	}
 }
 
@@ -123,7 +123,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 						for taskCount > 0 {
 							select {
 							case data := <-subresult:
-								result.SubResults = append(result.SubResults, *data)
+								result.SubResults = append(result.SubResults, data)
 							case <-time.After(60 * time.Second):
 							}
 							taskCount--
@@ -142,7 +142,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 			debugvars.Add("hls-tasks-expired", 1)
 		}
 	End:
-		task.ReplyTo <- *result
+		task.ReplyTo <- result
 		debugvars.Add("hls-tasks-done", 1)
 	}
 }
@@ -153,7 +153,7 @@ func SanjoseProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) {
 	for {
 		task := <-tasks
 		result := ExecHTTP(task)
-		task.ReplyTo <- *result
+		task.ReplyTo <- result
 		debugvars.Add("hds-tasks-done", 1)
 	}
 }

@@ -11,6 +11,7 @@ import (
 
 func ReportStreams(res http.ResponseWriter, req *http.Request) {
 	var tbody [][]string
+	var severity string
 
 	vars := setupHTTP(&res, req)
 	data := make(map[string]interface{})
@@ -20,20 +21,42 @@ func ReportStreams(res http.ResponseWriter, req *http.Request) {
 		data["title"] = "List of streams"
 	}
 	if vars["group"] != "" {
-		data["thead"] = []string{"Name", "Checks", "Errors"}
+		data["thead"] = []string{"Name", "Checks", "Errors (6 min)", "Errors (6 hours)", "Errors (6 days)"}
 	} else {
-		data["thead"] = []string{"Group", "Name", "Checks", "Errors"}
+		data["thead"] = []string{"Group", "Name", "Checks", "Errors (6 min)", "Errors (6 hours)", "Errors (6 days)"}
 	}
-	data["isreport"] = true
+	data["isactivity"] = true
 	for gname := range cfg.GroupParams {
 		if vars["group"] != "" && gname != strings.ToLower(vars["group"]) {
 			continue
 		}
 		for _, stream := range *cfg.GroupStreams[gname] {
-			tbody = append(tbody,
-				[]string{href(fmt.Sprintf("/rpt/%s", gname), gname),
-					href(fmt.Sprintf("/rpt/%s/%s", gname, stream.Name), stream.Name),
-					"0", "0"})
+			hist, err := LoadHistoryResults(Key{gname, stream.Name})
+			errcount := 0
+			if err == nil {
+				for _, val := range hist {
+					if val.ErrType > ERROR_LEVEL {
+						errcount++
+					}
+				}
+			}
+			if errcount > 0 {
+				severity = "warning"
+			} else {
+				severity = ""
+			}
+			if vars["group"] != "" {
+				tbody = append(tbody, []string{
+					severity,
+					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
+					"0", strconv.Itoa(errcount), "0", "0"})
+			} else {
+				tbody = append(tbody, []string{
+					severity,
+					href(fmt.Sprintf("/act/%s", gname), gname),
+					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
+					"0", strconv.Itoa(errcount), "0", "0"})
+			}
 		}
 	}
 	data["tbody"] = tbody
@@ -44,9 +67,10 @@ func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
 	vars := setupHTTP(&res, req)
 	data := make(map[string]interface{})
 	data["title"] = fmt.Sprintf("%s/%s info", vars["group"], vars["stream"])
-	data["isreport"] = true
-	data["history"] = fmt.Sprintf("/rpt/%s/%s/history", vars["group"], vars["stream"])
-	last, err := LoadLastStats(Key{vars["group"], vars["stream"]})
+	data["isactivity"] = true
+	data["stream"] = vars["stream"]
+	data["history"] = fmt.Sprintf("/act/%s/%s/history", vars["group"], vars["stream"])
+	last, err := LoadLastResult(Key{vars["group"], vars["stream"]})
 	if err == nil {
 		data["url"] = last.Task.URI
 	}
@@ -54,9 +78,9 @@ func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
 	data["timeoutcount"] = 0
 	data["httpcount"] = 0
 	data["formatcount"] = 0
-	hist, err := LoadHistoryStats(Key{vars["group"], vars["stream"]})
+	hist, err := LoadHistoryResults(Key{vars["group"], vars["stream"]})
 	if err == nil {
-		for _, val := range *hist {
+		for _, val := range hist {
 			switch val.ErrType {
 			case SLOW, VERYSLOW:
 				data["slowcount"] = data["slowcount"].(int) + 1
@@ -73,18 +97,18 @@ func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
 }
 
 func ReportStreamHistory(res http.ResponseWriter, req *http.Request) {
-	var severity string
+	var severity, checktype string
 	var tbody [][]string
 
 	data := make(map[string]interface{})
 	vars := setupHTTP(&res, req)
-	hist, err := LoadHistoryStats(Key{vars["group"], vars["stream"]})
+	hist, err := LoadHistoryResults(Key{vars["group"], vars["stream"]})
 	if err != nil {
 		http.Error(res, "Stream not found or not tested yet.", http.StatusNotFound)
 		return
 	}
 	if vars["stamp"] != "" { // отобразить подробности по ошибке
-		for _, val := range *hist {
+		for _, val := range hist {
 			stamp, err := strconv.ParseInt(vars["stamp"], 10, 64)
 			if err != nil {
 				goto FullHistory
@@ -115,10 +139,11 @@ func ReportStreamHistory(res http.ResponseWriter, req *http.Request) {
 
 FullHistory:
 	data["title"] = fmt.Sprintf("%s/%s checks history", vars["group"], vars["stream"])
-	data["isreport"] = true
-	data["thead"] = []string{"Check type", "Date/time", "Check status", "HTTP status", "Time elapsed", "Content length", "Raw result"}
-	for i := len(*hist) - 1; i >= 0; i-- { //_, val := range *data {
-		val := (*hist)[i]
+	data["isactivity"] = true
+	data["stream"] = vars["stream"]
+	data["thead"] = []string{"Check type", "Date/time", "Check result", "HTTP status", "Time elapsed", "Content length", "Raw result"}
+	for i := len(hist) - 1; i >= 0; i-- { //_, val := range *data {
+		val := (hist)[i]
 		switch {
 		case val.ErrType == SUCCESS:
 			severity = "info"
@@ -129,37 +154,37 @@ FullHistory:
 		default:
 			severity = "success"
 		}
+		if val.Pid == nil { // TODO пофиксить для HTTP/HDS-проверок
+			checktype = "master"
+		} else {
+			checktype = "media"
+		}
 		tbody = append(tbody,
 			[]string{severity,
-				"master",
-				val.Started.String(),
+				span(checktype, "label"),
+				val.Started.Format("2006-01-02 15:04:05 -0700"),
 				StreamErr2String(val.ErrType),
 				val.HTTPStatus,
 				val.Elapsed.String(),
 				strconv.FormatInt(val.ContentLength, 10),
 				href(fmt.Sprintf("%d/raw", val.Started.UnixNano()), "show raw result")})
-		for idx, sub := range val.SubResults {
-			switch {
-			case sub.ErrType == SUCCESS:
-				severity = "info"
-			case sub.ErrType < WARNING_LEVEL:
-				severity = "warning"
-			case sub.ErrType >= WARNING_LEVEL:
-				severity = "error"
-			default:
-				severity = "success"
-			}
-			tbody = append(tbody,
-				[]string{severity,
-					"media",
-					sub.Started.String(),
-					StreamErr2String(sub.ErrType),
-					sub.HTTPStatus,
-					sub.Elapsed.String(),
-					strconv.FormatInt(sub.ContentLength, 10),
-					href(fmt.Sprintf("%d/%d/raw", val.Started.UnixNano(), idx), "show raw result")})
-		}
 	}
 	data["tbody"] = tbody
 	Page.ExecuteTemplate(res, "report-stream-history", data)
+}
+
+func ReportIndex(res http.ResponseWriter, req *http.Request) {
+	setupHTTP(&res, req)
+
+	data := make(map[string]interface{})
+	data["title"] = "Available reports"
+	data["isreport"] = true
+	Page.ExecuteTemplate(res, "report-index", data)
+}
+
+func ReportStreamErrors(res http.ResponseWriter, req *http.Request) {
+	data := make(map[string]interface{})
+	data["title"] = "Available reports"
+	data["isreport"] = true
+	Page.ExecuteTemplate(res, "report-stream-info", data)
 }

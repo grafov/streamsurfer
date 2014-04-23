@@ -12,8 +12,8 @@
 <div class="container">
 <div class="hero-unit">
 <h1>{{.Title}}</h1>
-<p>Monitoring is {{if .Data.MonitoringState}}running{{else}}stopped{{end}}. {{.Data.TotalMonitoringPoints}} streams monitored ({{.Data.TotalHLSMonitoringPoints}} HLS, {{.Data.TotalHDSMonitoringPoints}} HDS, {{.Data.TotalHTTPMonitoringPoints}} HTTP).</p>
-<p><a class="btn btn-primary btn-large">More info &raquo;</a></p>
+<p>Monitor is {{if .Data.MonitoringState}}running{{else}}stopped{{end}}. {{.Data.TotalMonitoringPoints}} streams monitored ({{.Data.TotalHLSMonitoringPoints}} HLS, {{.Data.TotalHDSMonitoringPoints}} HDS, {{.Data.TotalHTTPMonitoringPoints}} HTTP).</p>
+<p><a class="btn btn-primary btn-large" href="/act">Show streams activity &raquo;</a></p>
 </div>
 
 <div class="row">
@@ -30,7 +30,7 @@
   <li><a href="rprt/last">Last streams errors (complete)</a></li>
   <li><a href="rprt/last-critical">Last streams errors (critical only)</a></li>
  </ul>
-<p><a class="btn" href="/rprt">Reports page &raquo;</a></p>
+<p><a class="btn" href="/rpt">Reports page &raquo;</a></p>
 </div>
 <div class="span4">
 <h2>Documentation (online)</h2>

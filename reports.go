@@ -1,4 +1,4 @@
-// OBSOLETED by report.go
+// OBSOLETED by webui-report.go
 // Web reports generator
 package main
 

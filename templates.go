@@ -1,3 +1,4 @@
+// OBSOLETED by templates/*.tmpl
 // Templates for webui
 package main
 

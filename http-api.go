@@ -28,21 +28,38 @@ func HttpAPI() {
 	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
 	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
 
+	/* Monitoring interface (for humans and robots)
+	 */
 	// Show stream list for all groups
-	r.HandleFunc("/rpt", ReportStreams).Methods("GET")
+	r.HandleFunc("/act", ReportStreams).Methods("GET")
 	// Show stream list for the group
-	r.HandleFunc("/rpt/{group}", ReportStreams).Methods("GET")
+	r.HandleFunc("/act/{group}", ReportStreams).Methods("GET")
 	// Информация о потоке и сводная статистика
-	r.HandleFunc("/rpt/{group}/{stream}", ReportStreamInfo).Methods("GET")
-	r.HandleFunc("/rpt/{group}/{stream}/", ReportStreamInfo).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}", ReportStreamInfo).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/", ReportStreamInfo).Methods("GET")
 	// История ошибок
-	r.HandleFunc("/rpt/{group}/{stream}/history", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/history", ReportStreamHistory).Methods("GET")
 	// Вывод результата проверки для мастер-плейлиста
-	r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
 	// Вывод результата проверки для вложенных проверок
-	r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+
+	/* Zabbix integration
+	 */
+	// Discovery data for Zabbix for all groups
+	r.HandleFunc("/zabbix-discovery", zabbixDiscovery()).Methods("GET", "HEAD")
+	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET", "HEAD")
+	// строковое значение ошибки для выбранных группы и канала
+	r.HandleFunc("/mon/error/{group}/{stream}/{astype:int|str}", monError).Methods("GET", "HEAD")
+	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
+	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel:[a-z]+}-{uptoerrlevel:[a-z]+}", monErrorLevel).Methods("GET")
+
+	/* Reports for humans
+	 */
 	// Вывод описания ошибки из анализатора
-	//r.HandleFunc("/rpt/{group}/{stream}/{stamp:[0-9]+}", ReportStreamError).Methods("GET")
+	r.HandleFunc("/rpt", ReportIndex).Methods("GET")
+	r.HandleFunc("/rpt/", ReportIndex).Methods("GET")
+	r.HandleFunc("/rpt/{rptid:[0-9]+}", ReportStreamErrors).Methods("GET")
 
 	// Obsoleted reports with old API:
 	// r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
@@ -59,19 +76,13 @@ func HttpAPI() {
 	// Zabbix autodiscovery protocol (JSON)
 	// https://www.zabbix.com/documentation/ru/2.0/manual/discovery/low_level_discovery
 	// new API
-	r.HandleFunc("/zabbix-discovery", zabbixDiscovery()).Methods("GET", "HEAD") // discovery data for Zabbix for all groups
-	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET", "HEAD")
 
-	// строковое значение ошибки для выбранных группы и канала
-	r.HandleFunc("/mon/error/{group}/{stream}/{astype:int|str}", monError).Methods("GET", "HEAD")
-
-	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
-	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel:[a-z]+}-{uptoerrlevel:[a-z]+}", monErrorLevel).Methods("GET")
-
-	// static and client side
+	/* Misc static data
+	 */
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET", "HEAD")
 	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET", "HEAD")
 	r.Handle("/{{name}}.png", http.FileServer(http.Dir("pics"))).Methods("GET", "HEAD")
+	r.Handle("/favicon.ico", http.FileServer(http.Dir("pics"))).Methods("GET", "HEAD")
 	fmt.Printf("Listen for API connections at %s\n", cfg.ListenHTTP)
 	srv := &http.Server{
 		Addr:        cfg.ListenHTTP,
@@ -82,10 +93,14 @@ func HttpAPI() {
 }
 
 func rootAPI(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Server", SERVER)
-	if err := IndexPageTemplate.Execute(res, PageValues{Stubs.Name, StatsGlobals}); err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-	}
+	data := make(map[string]interface{})
+	data["title"] = cfg.Stubs.Name
+	data["monState"] = StatsGlobals.MonitoringState
+	data["totalMonPoints"] = StatsGlobals.TotalMonitoringPoints
+	data["totalHLSMonPoints"] = StatsGlobals.TotalHLSMonitoringPoints
+	data["totalHDSMonPoints"] = StatsGlobals.TotalHDSMonitoringPoints
+	data["totalHTTPMonPoints"] = StatsGlobals.TotalHTTPMonitoringPoints
+	Page.ExecuteTemplate(res, "index", data)
 }
 
 // Webhandler. Возвращает text/plain значение ошибки для выбранных группы и канала.
@@ -104,7 +119,7 @@ func monError(res http.ResponseWriter, req *http.Request) {
 			}
 			return
 		}
-		if result, err := LoadLastStats(Key{vars["group"], vars["stream"]}); err == nil {
+		if result, err := LoadLastResult(Key{vars["group"], vars["stream"]}); err == nil {
 			switch vars["astype"] {
 			case "str":
 				res.Write([]byte(StreamErr2String(result.ErrType)))
@@ -137,7 +152,7 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
 			return
 		}
-		if result, err := LoadLastStats(Key{vars["group"], vars["stream"]}); err == nil {
+		if result, err := LoadLastResult(Key{vars["group"], vars["stream"]}); err == nil {
 			cur := result.ErrType
 			switch {
 			case cur <= String2StreamErr(vars["fromerrlevel"]):

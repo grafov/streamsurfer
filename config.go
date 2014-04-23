@@ -256,11 +256,13 @@ func splitName(re, source string) (uri, name, title string) {
 			title = uri
 		}
 	}
-	if re != "" {
+	if re != "" { // get name by regexp
 		compiledRe := regexp.MustCompile(re)
 		vals := compiledRe.FindStringSubmatch(uri)
 		if len(vals) > 1 {
 			name = vals[1]
+		} else {
+			name = title
 		}
 	} else {
 		name = title
