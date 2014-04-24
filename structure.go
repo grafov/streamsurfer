@@ -122,8 +122,12 @@ type Result struct {
 
 // StreamBox statistics
 type Stats struct {
-	Checks int64 // checks made
-	Errors int64 // total errors
+	Checks    int64     // checks made
+	Errors    int64     // total errors found
+	LastCheck time.Time // last check was at the time
+	NextCheck time.Time // next check will be at this time
+	// TODO результаты анализа потока в streambox (анализ перезапускать регулярно по таймеру)
+	// TODO вынести инфу о потоке потом в отдельную структуру
 }
 
 type MetaHLS struct {

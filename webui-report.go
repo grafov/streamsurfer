@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func ReportStreams(res http.ResponseWriter, req *http.Request) {
+func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 	var tbody [][]string
 	var severity string
 
@@ -31,6 +31,7 @@ func ReportStreams(res http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		for _, stream := range *cfg.GroupStreams[gname] {
+			stats := LoadStats(Key{gname, stream.Name})
 			hist, err := LoadHistoryResults(Key{gname, stream.Name})
 			errcount := 0
 			if err == nil {
@@ -49,18 +50,18 @@ func ReportStreams(res http.ResponseWriter, req *http.Request) {
 				tbody = append(tbody, []string{
 					severity,
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
-					"0", strconv.Itoa(errcount), "0", "0"})
+					strconv.FormatInt(stats.Checks, 10), strconv.Itoa(errcount), "0", "0"})
 			} else {
 				tbody = append(tbody, []string{
 					severity,
 					href(fmt.Sprintf("/act/%s", gname), gname),
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
-					"0", strconv.Itoa(errcount), "0", "0"})
+					strconv.FormatInt(stats.Checks, 10), strconv.Itoa(errcount), "0", "0"})
 			}
 		}
 	}
 	data["tbody"] = tbody
-	Page.ExecuteTemplate(res, "report-stream-list", data)
+	Page.ExecuteTemplate(res, "activity-index", data)
 }
 
 func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {

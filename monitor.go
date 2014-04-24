@@ -158,7 +158,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 	var min, max int
 	var command Command
 	var online bool = false
-	var taskid int64
+	var stats Stats
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -180,6 +180,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 		task.ReadBody = false
 	}
 	ctlrcv := ctl.Join() // управление мониторингом
+	timer := time.Tick(3 * time.Second)
 
 	for {
 		select {
@@ -191,6 +192,8 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 			case STOP_MON:
 				online = false
 			}
+		case <-timer:
+			SaveStats(stream, stats)
 		default:
 			if !online {
 				time.Sleep(1 * time.Second)
@@ -200,7 +203,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 			min = int(cfg.Params(stream.Group).TimeBetweenTasks / 4. * 3.)
 			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Second + addSleepToBrokenStream) // randomize streams order
 			task.TTL = time.Now().Add(time.Duration(cfg.Params(stream.Group).TaskTTL * time.Second))
-			taskid++ // TODO potentially overflow
+			stats.Checks++ // TODO potentially overflow
 			taskq <- task
 			debugvars.Add("requested-tasks", 1)
 			result := <-task.ReplyTo

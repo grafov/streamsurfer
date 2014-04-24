@@ -132,14 +132,14 @@ func SaveStats(stream Stream, last Stats) {
 }
 
 // Получить состояние по последней проверке.
-func LoadStats(key Key) (*Stats, error) {
+func LoadStats(key Key) *Stats {
 	result := make(chan *Stats)
 	statOut <- StatOutQuery{Key: key, ReplyTo: result}
 	data := <-result
 	if data != nil {
-		return data, nil
+		return data
 	} else {
-		return nil, errors.New("stats not found")
+		return &Stats{}
 	}
 }
 

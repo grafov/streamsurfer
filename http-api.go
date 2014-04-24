@@ -31,9 +31,9 @@ func HttpAPI() {
 	/* Monitoring interface (for humans and robots)
 	 */
 	// Show stream list for all groups
-	r.HandleFunc("/act", ReportStreams).Methods("GET")
+	r.HandleFunc("/act", ActivityIndex).Methods("GET")
 	// Show stream list for the group
-	r.HandleFunc("/act/{group}", ReportStreams).Methods("GET")
+	r.HandleFunc("/act/{group}", ActivityIndex).Methods("GET")
 	// Информация о потоке и сводная статистика
 	r.HandleFunc("/act/{group}/{stream}", ReportStreamInfo).Methods("GET")
 	r.HandleFunc("/act/{group}/{stream}/", ReportStreamInfo).Methods("GET")
