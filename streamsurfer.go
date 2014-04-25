@@ -64,6 +64,7 @@ func main() {
 	InitConfig(*confname)
 
 	go ConfigKeeper()
+	go InitStorage()
 	go LogKeeper(*verbose) // collect program logs and write them to file
 	go StatKeeper()        // collect probe statistics for report builders
 	go StreamMonitor()     // probe logic

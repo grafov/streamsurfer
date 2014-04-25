@@ -149,3 +149,7 @@ func href(url, text string, opts ...string) string {
 func span(text, class string) string {
 	return fmt.Sprintf("<span class=\"%s\">%s</span>", class, text)
 }
+
+func bytewe(res []byte, err error) []byte {
+	return res
+}

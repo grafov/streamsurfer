@@ -218,9 +218,9 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 
 			for _, subres := range result.SubResults {
 				subres.Pid = result
-				go SaveResult(stream, subres)
+				go SaveResult(stream, *subres)
 			}
-			go SaveResult(stream, result)
+			go SaveResult(stream, *result)
 
 			max = int(cfg.Params(stream.Group).CheckBrokenTime)
 			min = int(cfg.Params(stream.Group).CheckBrokenTime / 4. * 3.)

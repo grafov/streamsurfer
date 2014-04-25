@@ -23,7 +23,7 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 	if vars["group"] != "" {
 		data["thead"] = []string{"Name", "Checks", "Errors (6 min)", "Errors (6 hours)", "Errors (6 days)"}
 	} else {
-		data["thead"] = []string{"Group", "Name", "Checks", "Errors (6 min)", "Errors (6 hours)", "Errors (6 days)"}
+		data["thead"] = []string{"Group", "Name", "Checks", "Errors (6 min)", "Errors (3 hours)", "Errors (24 hours)"}
 	}
 	data["isactivity"] = true
 	for gname := range cfg.GroupParams {
@@ -32,11 +32,11 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 		}
 		for _, stream := range *cfg.GroupStreams[gname] {
 			stats := LoadStats(Key{gname, stream.Name})
-			hist, err := LoadHistoryResults(Key{gname, stream.Name})
+			hist, err := LoadHistoryErrors(Key{gname, stream.Name})
 			errcount := 0
 			if err == nil {
 				for _, val := range hist {
-					if val.ErrType > ERROR_LEVEL {
+					if val > ERROR_LEVEL {
 						errcount++
 					}
 				}
@@ -73,7 +73,7 @@ func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
 	data["history"] = fmt.Sprintf("/act/%s/%s/history", vars["group"], vars["stream"])
 	last, err := LoadLastResult(Key{vars["group"], vars["stream"]})
 	if err == nil {
-		data["url"] = last.Task.URI
+		data["url"] = last.URI
 	}
 	data["slowcount"] = 0
 	data["timeoutcount"] = 0
@@ -116,22 +116,22 @@ func ReportStreamHistory(res http.ResponseWriter, req *http.Request) {
 			}
 			if val.Started == time.Unix(0, stamp) {
 				if vars["idx"] == "" {
-					res.Write([]byte(fmt.Sprintf("GET %s\n\n", val.Task.URI)))
+					res.Write([]byte(fmt.Sprintf("GET %s\n\n", val.URI)))
 					val.Headers.Write(res)
 					res.Write([]byte("\n"))
-					res.Write(val.Body.Bytes())
+					res.Write(val.Body)
 				} else {
-					idx, err := strconv.Atoi(vars["idx"])
+					//idx, err := strconv.Atoi(vars["idx"])
 					if err != nil {
 						goto FullHistory
 					}
-					if len(val.SubResults) >= idx+1 {
-						sub := val.SubResults[idx]
-						res.Write([]byte(fmt.Sprintf("GET %s\n\n", sub.Task.URI)))
-						sub.Headers.Write(res)
-						res.Write([]byte("\n"))
-						res.Write(sub.Body.Bytes())
-					}
+					// if len(val.SubResults) >= idx+1 {
+					// 	sub := val.SubResults[idx]
+					// 	res.Write([]byte(fmt.Sprintf("GET %s\n\n", sub.URI)))
+					// 	sub.Headers.Write(res)
+					// 	res.Write([]byte("\n"))
+					// 	res.Write(sub.Body.Bytes())
+					// }
 				}
 				return
 			}
@@ -155,7 +155,7 @@ FullHistory:
 		default:
 			severity = "success"
 		}
-		if val.Pid == nil { // TODO пофиксить для HTTP/HDS-проверок
+		if val.Master { // TODO пофиксить для HTTP/HDS-проверок
 			checktype = "master"
 		} else {
 			checktype = "media"

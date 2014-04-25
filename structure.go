@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/grafov/m3u8"
 	"net/http"
 	"time"
@@ -115,17 +116,36 @@ type Result struct {
 	Started           time.Time     // начало исполнения проверки
 	Elapsed           time.Duration // понадобилось времени на задачу
 	TotalErrs         uint
-	Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
-	Pid               *Result     // link to parent check (is nil for top level URLs)
-	SubResults        []*Result   // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
+	//Meta              interface{} // Reference to metainformation about result data (playlist type etc.)
+	Pid        *Result   // link to parent check (is nil for top level URLs)
+	SubResults []*Result // Результаты вложенных проверок (i.e. media playlists for different bitrate of master playlists)
+}
+
+// Results persistently keeped in Redis
+type KeepedResult struct {
+	Tid int64 // all subresults have same task id
+	Stream
+	Master            bool // is master result?
+	ErrType           ErrType
+	HTTPCode          int    // HTTP status code
+	HTTPStatus        string // HTTP status string
+	ContentLength     int64
+	RealContentLength int64
+	Headers           http.Header
+	Body              []byte
+	Started           time.Time     // начало исполнения проверки
+	Elapsed           time.Duration // понадобилось времени на задачу
+	TotalErrs         uint
 }
 
 // StreamBox statistics
 type Stats struct {
-	Checks    int64     // checks made
-	Errors    int64     // total errors found
-	LastCheck time.Time // last check was at the time
-	NextCheck time.Time // next check will be at this time
+	Checks       int64     // checks made
+	Errors       int64     // total errors found
+	Errors6min   int       // errors in last 3 min
+	Errors6hours int       //
+	LastCheck    time.Time // last check was at the time
+	NextCheck    time.Time // next check will be at this time
 	// TODO результаты анализа потока в streambox (анализ перезапускать регулярно по таймеру)
 	// TODO вынести инфу о потоке потом в отдельную структуру
 }
@@ -146,6 +166,11 @@ type Key struct {
 	Name  string
 }
 
+// serialised key
+func (k *Key) String() string {
+	return fmt.Sprintf("%s/%s", k.Group, k.Name)
+}
+
 // запросы на сохранение статистики
 type StatInQuery struct {
 	Stream Stream
@@ -155,19 +180,25 @@ type StatInQuery struct {
 // запросы на получение статистики
 type StatOutQuery struct {
 	Key     Key
-	ReplyTo chan *Stats
+	ReplyTo chan Stats
 }
 
 // запросы на сохранение статистики
 type ResultInQuery struct {
 	Stream Stream
-	Last   *Result
+	Last   Result
 }
 
 // запросы на получение статистики
 type ResultOutQuery struct {
 	Key     Key
-	ReplyTo chan []*Result
+	ReplyTo chan []KeepedResult
+}
+
+// common type for queries
+type OutQuery struct {
+	Key     Key
+	ReplyTo chan interface{}
 }
 
 type ErrHistoryKey struct {
