@@ -38,7 +38,7 @@ func HttpAPI() {
 	r.HandleFunc("/act/{group}/{stream}", ReportStreamInfo).Methods("GET")
 	r.HandleFunc("/act/{group}/{stream}/", ReportStreamInfo).Methods("GET")
 	// История ошибок
-	r.HandleFunc("/act/{group}/{stream}/history", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{mode:history|errors}", ReportStreamHistory).Methods("GET")
 	// Вывод результата проверки для мастер-плейлиста
 	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
 	// Вывод результата проверки для вложенных проверок

@@ -2,7 +2,9 @@
 {{template "page-header" .}}
 <h1>{{.title}}</h1>
 
-<a class="btn" href=".">stream info</a><br />
+<a class="btn" href=".">stream info</a>
+{{if .history}}<a class="btn" href="history">show full history</a>{{end}}
+{{if .errorsonly}}<a class="btn" href="errors">show errors only</a>{{end}}
 
 <h2>History for last 30 minutes</h2>
 <table class="table table-bordered table-condensed">

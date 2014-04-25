@@ -71,6 +71,7 @@ func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
 	data["isactivity"] = true
 	data["stream"] = vars["stream"]
 	data["history"] = fmt.Sprintf("/act/%s/%s/history", vars["group"], vars["stream"])
+	data["errorsonly"] = fmt.Sprintf("/act/%s/%s/errors", vars["group"], vars["stream"])
 	last, err := LoadLastResult(Key{vars["group"], vars["stream"]})
 	if err == nil {
 		data["url"] = last.URI
@@ -143,14 +144,24 @@ FullHistory:
 	data["isactivity"] = true
 	data["stream"] = vars["stream"]
 	data["thead"] = []string{"Check type", "Date/time", "Check result", "HTTP status", "Time elapsed", "Content length", "Raw result"}
+	println(vars["mode"])
+	switch vars["mode"] {
+	case "history":
+		data["errorsonly"] = true // fmt.Sprintf("/act/%s/%s/errors", vars["group"], vars["stream"])
+	case "errors":
+		data["history"] = true // fmt.Sprintf("/act/%s/%s/history", vars["group"], vars["stream"])
+	}
 	for i := len(hist) - 1; i >= 0; i-- { //_, val := range *data {
 		val := (hist)[i]
+		if vars["mode"] == "errors" && val.ErrType <= WARNING_LEVEL {
+			continue
+		}
 		switch {
 		case val.ErrType == SUCCESS:
 			severity = "info"
-		case val.ErrType < WARNING_LEVEL:
+		case val.ErrType <= WARNING_LEVEL:
 			severity = "warning"
-		case val.ErrType >= WARNING_LEVEL:
+		case val.ErrType > WARNING_LEVEL:
 			severity = "error"
 		default:
 			severity = "success"
