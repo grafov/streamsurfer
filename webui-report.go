@@ -89,7 +89,7 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 	Page.ExecuteTemplate(res, "activity-index", data)
 }
 
-func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
+func ActivityStreamInfo(res http.ResponseWriter, req *http.Request) {
 	vars := setupHTTP(&res, req)
 	data := make(map[string]interface{})
 	data["title"] = fmt.Sprintf("%s/%s info", vars["group"], vars["stream"])
@@ -123,7 +123,7 @@ func ReportStreamInfo(res http.ResponseWriter, req *http.Request) {
 	Page.ExecuteTemplate(res, "report-stream-info", data)
 }
 
-func ReportStreamHistory(res http.ResponseWriter, req *http.Request) {
+func ActivityStreamHistory(res http.ResponseWriter, req *http.Request) {
 	var severity, checktype string
 	var tbody [][]string
 

@@ -35,14 +35,14 @@ func HttpAPI() {
 	// Show stream list for the group
 	r.HandleFunc("/act/{group}", ActivityIndex).Methods("GET")
 	// Информация о потоке и сводная статистика
-	r.HandleFunc("/act/{group}/{stream}", ReportStreamInfo).Methods("GET")
-	r.HandleFunc("/act/{group}/{stream}/", ReportStreamInfo).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}", ActivityStreamInfo).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/", ActivityStreamInfo).Methods("GET")
 	// История ошибок
-	r.HandleFunc("/act/{group}/{stream}/{mode:history|errors}", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{mode:history|errors}", ActivityStreamHistory).Methods("GET")
 	// Вывод результата проверки для мастер-плейлиста
-	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/raw", ActivityStreamHistory).Methods("GET")
 	// Вывод результата проверки для вложенных проверок
-	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", ReportStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", ActivityStreamHistory).Methods("GET")
 
 	/* Zabbix integration
 	 */
