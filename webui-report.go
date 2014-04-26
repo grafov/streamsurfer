@@ -11,7 +11,6 @@ import (
 
 func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 	var tbody [][]string
-	var severity string
 
 	vars := setupHTTP(&res, req)
 	data := make(map[string]interface{})
@@ -21,9 +20,9 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 		data["title"] = "List of streams"
 	}
 	if vars["group"] != "" {
-		data["thead"] = []string{"Name", "Checks", "Errors (6 min)", "Errors (6 hours)", "Errors (6 days)"}
+		data["thead"] = []string{"Name", "Checks", "Problems (6 min)", "Problems (1 hour)", "Problems (6 hours)"}
 	} else {
-		data["thead"] = []string{"Group", "Name", "Checks", "Errors (6 min)", "Errors (3 hours)", "Errors (24 hours)"}
+		data["thead"] = []string{"Group", "Name", "Checks", "Problems (6 min)", "Problems (1 hour)", "Problems (6 hours)"}
 	}
 	data["isactivity"] = true
 	for gname := range cfg.GroupParams {
@@ -31,32 +30,58 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		for _, stream := range *cfg.GroupStreams[gname] {
+			severity := ""
 			stats := LoadStats(Key{gname, stream.Name})
-			hist, err := LoadHistoryErrors(Key{gname, stream.Name})
-			errcount := 0
+			hist, err := LoadHistoryErrors(Key{gname, stream.Name}, 6*time.Hour)
+			errcount6h := 0
 			if err == nil {
 				for _, val := range hist {
-					if val > ERROR_LEVEL {
-						errcount++
+					if val > WARNING_LEVEL {
+						errcount6h++
 					}
 				}
 			}
-			if errcount > 0 {
+			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 1*time.Hour)
+			errcount60m := 0
+			if err == nil {
+				for _, val := range hist {
+					if val > WARNING_LEVEL {
+						errcount60m++
+					}
+				}
+			}
+			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 6*time.Minute)
+			errcount6m := 0
+			if err == nil {
+				for _, val := range hist {
+					if val > ERROR_LEVEL {
+						severity = "error"
+					}
+					if val > WARNING_LEVEL {
+						errcount6m++
+					}
+				}
+			}
+			if severity == "" && errcount6m > 0 {
 				severity = "warning"
-			} else {
-				severity = ""
 			}
 			if vars["group"] != "" {
 				tbody = append(tbody, []string{
 					severity,
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
-					strconv.FormatInt(stats.Checks, 10), strconv.Itoa(errcount), "0", "0"})
+					strconv.FormatInt(stats.Checks, 10),
+					strconv.Itoa(errcount6m),
+					strconv.Itoa(errcount60m),
+					strconv.Itoa(errcount6h)})
 			} else {
 				tbody = append(tbody, []string{
 					severity,
 					href(fmt.Sprintf("/act/%s", gname), gname),
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
-					strconv.FormatInt(stats.Checks, 10), strconv.Itoa(errcount), "0", "0"})
+					strconv.FormatInt(stats.Checks, 10),
+					strconv.Itoa(errcount6m),
+					strconv.Itoa(errcount60m),
+					strconv.Itoa(errcount6h)})
 			}
 		}
 	}

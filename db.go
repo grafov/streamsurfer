@@ -33,7 +33,7 @@ func InitStorage() {
 	}
 }
 
-func RedKeepResult(key Key, order time.Time, res Result) error {
+func RedKeepResult(key Key, weight time.Time, res Result) error {
 	//var buf bytes.Buffer
 
 	conn := redisPool.Get()
@@ -70,19 +70,23 @@ func RedKeepResult(key Key, order time.Time, res Result) error {
 		fmt.Printf("redis: %s\n", err)
 		return err
 	}
-	_, err = conn.Do("ZADD", key.String(), strconv.FormatInt(order.Unix(), 10), buf)
+	_, err = conn.Do("ZADD", key.String(), strconv.FormatInt(weight.Unix(), 10), buf)
 	if err != nil {
-		fmt.Printf("redis: %s\n", err)
+		fmt.Printf("redis RedKeepResult: %s\n", err)
 	}
 	return err
 }
 
-func RedKeepError(key Key, order time.Time, errtype ErrType) error {
+// Keeps values only for errors and warngings.
+func RedKeepError(key Key, weight time.Time, errtype ErrType) error {
+	if errtype < WARNING_LEVEL {
+		return nil
+	}
 	conn := redisPool.Get()
 	defer conn.Close()
-	_, err := conn.Do("ZADD", fmt.Sprintf("errors/%s", key.String()), strconv.FormatInt(order.Unix(), 10), errtype)
+	_, err := conn.Do("ZADD", fmt.Sprintf("errors/%s", key.String()), strconv.FormatInt(weight.Unix(), 10), errtype)
 	if err != nil {
-		fmt.Printf("redis: %s\n", err)
+		fmt.Printf("redis RedKeepError: %s\n", err)
 	}
 	return err
 }

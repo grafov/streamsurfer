@@ -84,6 +84,7 @@ func StatKeeper() {
 			//results[Key{state.Stream.Group, state.Stream.Name}] = append(results[Key{state.Stream.Group, state.Stream.Name}], state.Last)
 			RedKeepResult(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last)
 			RedKeepError(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last.ErrType)
+
 		case key := <-resultOut:
 			data, err := RedLoadResults(key.Key, time.Now().Add(-24*time.Hour), time.Now())
 			if err != nil {
@@ -93,7 +94,7 @@ func StatKeeper() {
 			}
 
 		case key := <-errorsOut: // get error list by streams
-			data, err := RedLoadErrors(key.Key, time.Now().Add(-24*time.Hour), time.Now())
+			data, err := RedLoadErrors(key.Key, key.From, key.To)
 			if err != nil {
 				key.ReplyTo <- nil
 			} else {
@@ -145,9 +146,9 @@ func LoadHistoryResults(key Key) ([]KeepedResult, error) {
 	}
 }
 
-func LoadHistoryErrors(key Key) ([]ErrType, error) {
+func LoadHistoryErrors(key Key, from time.Duration) ([]ErrType, error) {
 	result := make(chan interface{})
-	errorsOut <- OutQuery{Key: key, ReplyTo: result}
+	errorsOut <- OutQuery{Key: key, From: time.Now().Add(-from), To: time.Now(), ReplyTo: result}
 	data := <-result
 	if data != nil {
 		return data.([]ErrType), nil

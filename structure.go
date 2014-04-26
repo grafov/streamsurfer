@@ -198,6 +198,8 @@ type ResultOutQuery struct {
 // common type for queries
 type OutQuery struct {
 	Key     Key
+	From    time.Time
+	To      time.Time
 	ReplyTo chan interface{}
 }
 
