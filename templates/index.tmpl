@@ -1,0 +1,44 @@
+{{define "index"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{.title}} :: Stream Surfer</title>
+<meta name="description" content="Index page of Stream Surfer instance.">
+<link href="/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/custom.css" rel="stylesheet">
+<script src="/js/bootstrap.min.js"></script>
+</head>
+<body>
+<div class="container">
+<div class="hero-unit">
+<h1>{{.title}}</h1>
+<p>Monitor is {{if .monState}}running{{else}}stopped{{end}}. {{.totalMonPoints}} streams monitored ({{.totalHLSMonPoints}} HLS, {{.totalHDSMonPoints}} HDS, {{.totalHTTPMonPoints}} HTTP).</p>
+<p><a class="btn btn-primary btn-large" href="/act">Show streams activity</a></p>
+</div>
+
+<div class="row">
+<div class="span4">
+<h2>Control</h2>
+<p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+<p><a class="btn" href="#">Control panel</a></p>
+</div>
+<div class="span4">
+<h2>Reports</h2>
+<p>Last reports:</p>
+ <ul>
+  <li><small>2014-04-23 15:00</small> <span class="label label-important">critical</span> <a href="#">Stream `rt-451/sovfed_sd` not available up to 30min.</a></li>
+  <li><small>2014-04-23 14:30</small> <span class="label label-important">critical</span> <a href="#">Media playlists for `rt-451/sovfed_sd` not available up to 20min.</a></li>
+  <li><small>2014-04-23 11:30</small> <span class="label label-warning">warning</span> <a href="#">Slow responses for all streams in `rt-451` group up to 20min.</a></li>
+ </ul>
+<p><a class="btn" href="/rpt">Reports</a></p>
+</div>
+<div class="span4">
+<h2>Documentation (online)</h2>
+<p>Donec sed odio dui. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Vestibulum id ligula porta felis euismod semper. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
+<p><a class="btn" href="#">Open site</a></p>
+</div>
+</div>
+<hr>
+</div>
+{{template "page-footer" .}}
+{{end}}

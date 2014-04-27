@@ -7,7 +7,9 @@
   <li><small>2014-04-23 14:30</small> <span class="label label-important">critical</span> <a href="#">Media playlists for `rt-451/sovfed_sd` not available up to 20min.</a></li>
   <li><small>2014-04-23 11:30</small> <span class="label label-warning">warning</span> <a href="#">Slow responses for all streams in `rt-451` group up to 20min.</a></li>
 </ul>
-<table class="table table-bordered table-condensed">
+
+
+<table class="table">
       <thead>
           <tr>
   {{range $i, $val := .thead}}
@@ -19,10 +21,9 @@
 		  </thead>
 			<tbody>
 	{{range $i, $row := .tbody}}
+		    <tr>
 		{{range $j, $col := $row}}
-		  {{if $j}}<td>{{$col}}</td>{{/* colored by severity level */}}
-			{{else}}<tr class="{{$col}}">
-			{{end}}
+		    <td>{{$col}}</td>
 		{{end}}
 				</tr>
 	{{end}}
