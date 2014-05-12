@@ -24,6 +24,13 @@ const (
 	WV                          // Widevine VOD
 )
 
+const (
+	INFO Severity = iota
+	WARNING
+	ERROR
+	CRITICAL
+)
+
 // Error codes (ordered by errors importance).
 // If several errors detected then only one with the heaviest weight reported.
 // Must be in consistence with String2StreamErr() and StreamErr2String()
@@ -61,6 +68,7 @@ const (
 	DROP_STREAM
 )
 
+type Severity uint
 type StreamType uint // Type of checked streams
 type ErrType uint
 type Command uint

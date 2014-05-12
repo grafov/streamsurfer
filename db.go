@@ -79,9 +79,6 @@ func RedKeepResult(key Key, weight time.Time, res Result) error {
 
 // Keeps values only for errors and warngings.
 func RedKeepError(key Key, weight time.Time, errtype ErrType) error {
-	if errtype < WARNING_LEVEL {
-		return nil
-	}
 	conn := redisPool.Get()
 	defer conn.Close()
 	_, err := conn.Do("ZADD", fmt.Sprintf("errors/%s", key.String()), strconv.FormatInt(weight.Unix(), 10), errtype)
@@ -112,15 +109,23 @@ func RedLoadResults(key Key, from, to time.Time) ([]KeepedResult, error) {
 	return result, err
 }
 
-func RedLoadErrors(key Key, from, to time.Time) ([]ErrType, error) {
-	var result []ErrType
+func RedLoadErrors(key Key, from, to time.Time) (map[time.Time]ErrType, error) {
+	var retval ErrType
 
 	conn := redisPool.Get()
 	defer conn.Close()
-	data, err := redis.Values(conn.Do("ZRANGEBYSCORE", fmt.Sprintf("errors/%s", key.String()), strconv.FormatInt(from.Unix(), 10), strconv.FormatInt(to.Unix(), 10)))
+	result := make(map[time.Time]ErrType)
+	data, err := redis.Values(conn.Do("ZRANGEBYSCORE", fmt.Sprintf("errors/%s", key.String()), strconv.FormatInt(from.Unix(), 10), strconv.FormatInt(to.Unix(), 10), "WITHSCORES"))
 	if err == nil {
-		for _, val := range data {
-			result = append(result, ErrType(val.([]uint8)[0]))
+		for idx, val := range data {
+			if idx%2 == 0 { // data
+				retval = ErrType(val.([]uint8)[0])
+			} else { // key
+				key, err := strconv.ParseInt(string(val.([]byte)), 10, 64)
+				if err == nil {
+					result[time.Unix(key, 0)] = retval
+				}
+			}
 		}
 		return result, nil
 	} else {

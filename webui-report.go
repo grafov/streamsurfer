@@ -20,9 +20,9 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 		data["title"] = "List of streams"
 	}
 	if vars["group"] != "" {
-		data["thead"] = []string{"Name", "Checks", "Problems (6 min)", "Problems (1 hour)", "Problems (6 hours)"}
+		data["thead"] = []string{"Name", "Checks", "Problems (3 min)", "Problems (last 15 min)", "Problems (last 1 hour)"}
 	} else {
-		data["thead"] = []string{"Group", "Name", "Checks", "Problems (6 min)", "Problems (1 hour)", "Problems (6 hours)"}
+		data["thead"] = []string{"Group", "Name", "Checks", "Problems (last 3 min)", "Problems (last 15 min)", "Problems (last 1 hour)"}
 	}
 	data["isactivity"] = true
 	for gname := range cfg.GroupParams {
@@ -32,37 +32,37 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 		for _, stream := range *cfg.GroupStreams[gname] {
 			severity := ""
 			stats := LoadStats(Key{gname, stream.Name})
-			hist, err := LoadHistoryErrors(Key{gname, stream.Name}, 6*time.Hour)
-			errcount6h := 0
+			hist, err := LoadHistoryErrors(Key{gname, stream.Name}, 1*time.Hour)
+			errcountLong := 0
 			if err == nil {
 				for _, val := range hist {
 					if val > WARNING_LEVEL {
-						errcount6h++
+						errcountLong++
 					}
 				}
 			}
-			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 1*time.Hour)
-			errcount60m := 0
+			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 15*time.Minute)
+			errcountMid := 0
 			if err == nil {
 				for _, val := range hist {
 					if val > WARNING_LEVEL {
-						errcount60m++
+						errcountMid++
 					}
 				}
 			}
-			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 6*time.Minute)
-			errcount6m := 0
+			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 3*time.Minute)
+			errcountShort := 0
 			if err == nil {
 				for _, val := range hist {
 					if val > ERROR_LEVEL {
 						severity = "error"
 					}
 					if val > WARNING_LEVEL {
-						errcount6m++
+						errcountShort++
 					}
 				}
 			}
-			if severity == "" && errcount6m > 0 {
+			if severity == "" && errcountShort > 0 {
 				severity = "warning"
 			}
 			if vars["group"] != "" {
@@ -70,18 +70,18 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 					severity,
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
 					strconv.FormatInt(stats.Checks, 10),
-					strconv.Itoa(errcount6m),
-					strconv.Itoa(errcount60m),
-					strconv.Itoa(errcount6h)})
+					strconv.Itoa(errcountShort),
+					strconv.Itoa(errcountMid),
+					strconv.Itoa(errcountLong)})
 			} else {
 				tbody = append(tbody, []string{
 					severity,
 					href(fmt.Sprintf("/act/%s", gname), gname),
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
 					strconv.FormatInt(stats.Checks, 10),
-					strconv.Itoa(errcount6m),
-					strconv.Itoa(errcount60m),
-					strconv.Itoa(errcount6h)})
+					strconv.Itoa(errcountShort),
+					strconv.Itoa(errcountMid),
+					strconv.Itoa(errcountLong)})
 			}
 		}
 	}
@@ -105,10 +105,10 @@ func ActivityStreamInfo(res http.ResponseWriter, req *http.Request) {
 	data["timeoutcount"] = 0
 	data["httpcount"] = 0
 	data["formatcount"] = 0
-	hist, err := LoadHistoryResults(Key{vars["group"], vars["stream"]})
+	hist, err := LoadHistoryErrors(Key{vars["group"], vars["stream"]}, 24*time.Hour)
 	if err == nil {
 		for _, val := range hist {
-			switch val.ErrType {
+			switch val {
 			case SLOW, VERYSLOW:
 				data["slowcount"] = data["slowcount"].(int) + 1
 			case CTIMEOUT, RTIMEOUT:
@@ -169,14 +169,14 @@ FullHistory:
 	data["isactivity"] = true
 	data["stream"] = vars["stream"]
 	data["thead"] = []string{"Check type", "Date/time", "Check result", "HTTP status", "Time elapsed", "Content length", "Raw result"}
-	println(vars["mode"])
+
 	switch vars["mode"] {
 	case "history":
 		data["errorsonly"] = true // fmt.Sprintf("/act/%s/%s/errors", vars["group"], vars["stream"])
 	case "errors":
 		data["history"] = true // fmt.Sprintf("/act/%s/%s/history", vars["group"], vars["stream"])
 	}
-	for i := len(hist) - 1; i >= 0; i-- { //_, val := range *data {
+	for i := len(hist) - 1; i >= 0; i-- {
 		val := (hist)[i]
 		if vars["mode"] == "errors" && val.ErrType <= WARNING_LEVEL {
 			continue
@@ -211,17 +211,63 @@ FullHistory:
 }
 
 func ReportIndex(res http.ResponseWriter, req *http.Request) {
+	var tbody [][]string
+	var severity string
+
 	setupHTTP(&res, req)
 
 	data := make(map[string]interface{})
 	data["title"] = "Available reports"
 	data["isreport"] = true
+	data["thead"] = []string{"Date", "Severity", "Title"}
+	reports := []Report{} //LoadReports()
+	for _, report := range reports {
+		switch report.Severity {
+		case INFO:
+			severity = span("info", "label label-info")
+		case WARNING:
+			severity = span("info", "label label-warning")
+		case ERROR:
+			severity = span("error", "label label-important")
+		case CRITICAL:
+			severity = span("critical", "label label-important")
+		}
+		tbody = append(tbody,
+			[]string{report.Generated.Format("2006-01-02 15:04:05 -0700"),
+				severity,
+				report.Title})
+	}
+	data["tbody"] = tbody
 	Page.ExecuteTemplate(res, "report-index", data)
 }
 
 func ReportStreamErrors(res http.ResponseWriter, req *http.Request) {
+	var tbody [][]string
+	var severity string
+
+	setupHTTP(&res, req)
+
 	data := make(map[string]interface{})
 	data["title"] = "Available reports"
 	data["isreport"] = true
+	data["thead"] = []string{"Date", "Severity", "Title"}
+	reports := []Report{} //LoadReports()
+	for _, report := range reports {
+		switch report.Severity {
+		case INFO:
+			severity = span("info", "label label-info")
+		case WARNING:
+			severity = span("info", "label label-warning")
+		case ERROR:
+			severity = span("error", "label label-important")
+		case CRITICAL:
+			severity = span("critical", "label label-important")
+		}
+		tbody = append(tbody,
+			[]string{report.Generated.Format("2006-01-02 15:04:05 -0700"),
+				severity,
+				report.Title})
+	}
+	data["tbody"] = tbody
 	Page.ExecuteTemplate(res, "report-stream-info", data)
 }

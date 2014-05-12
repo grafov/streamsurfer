@@ -58,6 +58,7 @@ type Incident struct {
 func StatKeeper() {
 	//var results map[Key][]Result = make(map[Key][]Result)
 	var stats map[Key]Stats = make(map[Key]Stats)
+	//	var errors map[Key]map[time.Time]ErrType = make(map[Key]map[time.Time]ErrType)
 
 	statIn = make(chan StatInQuery, 8192) // receive stats
 	statOut = make(chan StatOutQuery, 8)  // send stats
@@ -83,10 +84,13 @@ func StatKeeper() {
 		case state := <-resultIn: // incoming results from streamboxes
 			//results[Key{state.Stream.Group, state.Stream.Name}] = append(results[Key{state.Stream.Group, state.Stream.Name}], state.Last)
 			RedKeepResult(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last)
-			RedKeepError(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last.ErrType)
+			if state.Last.ErrType >= WARNING_LEVEL {
+				RedKeepError(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last.ErrType)
+			}
+			//		delete(errors, Key{state.Stream.Group, state.Stream.Name})
 
 		case key := <-resultOut:
-			data, err := RedLoadResults(key.Key, time.Now().Add(-24*time.Hour), time.Now())
+			data, err := RedLoadResults(key.Key, time.Now().Add(-6*time.Hour), time.Now())
 			if err != nil {
 				key.ReplyTo <- nil
 			} else {
@@ -94,12 +98,31 @@ func StatKeeper() {
 			}
 
 		case key := <-errorsOut: // get error list by streams
+			//			result := make(map[time.Time]ErrType)
+
 			data, err := RedLoadErrors(key.Key, key.From, key.To)
 			if err != nil {
 				key.ReplyTo <- nil
 			} else {
 				key.ReplyTo <- data
 			}
+
+			// if data, ok := errors[key.Key]; ok {
+			// 	for _, val := range data {
+			// 		if val.Started.After(key.From) && val.Started.Before(key.To) {
+			// 			result = append(result, val)
+			// 		}
+			// 	}
+			// 	key.ReplyTo <- result
+			// } else {
+			// 	data, err := RedLoadErrors(key.Key, key.From, key.To)
+			// 	if err != nil {
+			// 		key.ReplyTo <- nil
+			// 	} else {
+			// 		key.ReplyTo <- data
+			// 	}
+			// 	errors[key] = data
+			// }
 		}
 	}
 }
@@ -146,12 +169,12 @@ func LoadHistoryResults(key Key) ([]KeepedResult, error) {
 	}
 }
 
-func LoadHistoryErrors(key Key, from time.Duration) ([]ErrType, error) {
+func LoadHistoryErrors(key Key, from time.Duration) (map[time.Time]ErrType, error) {
 	result := make(chan interface{})
 	errorsOut <- OutQuery{Key: key, From: time.Now().Add(-from), To: time.Now(), ReplyTo: result}
 	data := <-result
 	if data != nil {
-		return data.([]ErrType), nil
+		return data.(map[time.Time]ErrType), nil
 	} else {
 		return nil, errors.New("result not found")
 	}
