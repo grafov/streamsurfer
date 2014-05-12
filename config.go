@@ -21,6 +21,9 @@ type Config struct {
 	Zabbix       configZabbix
 	Samples      []string
 	ListenHTTP   string
+	User         string
+	Pass         string
+	UserAgents   []string
 	ErrorLog     string
 	IsReady      chan bool // config parsed and ready to use
 }
@@ -59,9 +62,12 @@ type configStub struct {
 // raw config data
 type configYAML struct {
 	ListenHTTP string                     `yaml:"http-api-listen,omitempty"`
+	User       string                     `yaml:"http-api-user,omitempty"`
+	Pass       string                     `yaml:"http-api-pass,omitempty"`
 	Stubs      configStub                 `yaml:"stubs,omitempty"`
 	Zabbix     configZabbix               `yaml:"zabbix,omitempty"`
 	Samples    []string                   `yaml:"unmortal,omitempty"`
+	UserAgents []string                   `yaml:"user-agents,omitempty"`
 	Defaults   configGroupYAML            `yaml:"defaults,omitempty"`
 	Groups     map[string]configGroupYAML `yaml:"groups,omitempty"`
 }
@@ -145,9 +151,12 @@ func rawConfig(confile string) *configYAML {
 //
 func parseOptionsConfig(rawcfg *configYAML) {
 	cfg.ListenHTTP = rawcfg.ListenHTTP
+	cfg.User = rawcfg.User
+	cfg.Pass = rawcfg.Pass
 	cfg.Stubs = rawcfg.Stubs
 	cfg.Zabbix = rawcfg.Zabbix
 	cfg.Samples = rawcfg.Samples
+	cfg.UserAgents = rawcfg.UserAgents
 }
 
 //

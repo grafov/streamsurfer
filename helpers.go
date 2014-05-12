@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 )
@@ -152,4 +153,13 @@ func span(text, class string) string {
 
 func bytewe(res []byte, err error) []byte {
 	return res
+}
+
+// Returns proper user agent string for the HTTP-headers.
+func UserAgent() string {
+	if len(cfg.UserAgents) > 0 {
+		return cfg.UserAgents[rand.Intn(len(cfg.UserAgents)-1)]
+	} else {
+		return fmt.Sprintf("%s/%s", SURFER, VERSION)
+	}
 }

@@ -326,7 +326,7 @@ func ExecHTTP(task *Task) *Result {
 		result.ContentLength = -1
 		return result
 	}
-	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", SURFER, VERSION))
+	req.Header.Set("User-Agent", UserAgent())
 	resp, err := client.Do(req)
 	result.Elapsed = time.Since(result.Started)
 	if err != nil {

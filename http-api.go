@@ -4,6 +4,7 @@ package main
 import (
 	"expvar"
 	"fmt"
+	auth "github.com/abbot/go-http-auth"
 	"github.com/gorilla/mux"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 )
 
 var Page *template.Template
+var authCheck *auth.BasicAuth
 
 // Elder.
 func HttpAPI() {
@@ -24,42 +26,49 @@ func HttpAPI() {
 		os.Exit(1)
 	}
 
+	authCheck = auth.NewBasicAuthenticator("Stream Surfer", func(user, realm string) string {
+		if realm == "Stream Surfer" && user == cfg.User {
+			return cfg.Pass
+		}
+		return ""
+	})
+
 	r := mux.NewRouter()
-	r.HandleFunc("/debug", expvarHandler).Methods("GET", "HEAD")
-	r.HandleFunc("/", rootAPI).Methods("GET", "HEAD")
+	r.HandleFunc("/debug", HandleHTTP(expvarHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/", HandleHTTP(rootAPI)).Methods("GET", "HEAD")
 
 	/* Monitoring interface (for humans and robots)
 	 */
 	// Show stream list for all groups
-	r.HandleFunc("/act", ActivityIndex).Methods("GET")
+	r.HandleFunc("/act", HandleHTTP(ActivityIndex)).Methods("GET")
 	// Show stream list for the group
-	r.HandleFunc("/act/{group}", ActivityIndex).Methods("GET")
+	r.HandleFunc("/act/{group}", HandleHTTP(ActivityIndex)).Methods("GET")
 	// Информация о потоке и сводная статистика
-	r.HandleFunc("/act/{group}/{stream}", ActivityStreamInfo).Methods("GET")
-	r.HandleFunc("/act/{group}/{stream}/", ActivityStreamInfo).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}", HandleHTTP(ActivityStreamInfo)).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/", HandleHTTP(ActivityStreamInfo)).Methods("GET")
 	// История ошибок
-	r.HandleFunc("/act/{group}/{stream}/{mode:history|errors}", ActivityStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{mode:history|errors}", HandleHTTP(ActivityStreamHistory)).Methods("GET")
 	// Вывод результата проверки для мастер-плейлиста
-	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/raw", ActivityStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/raw", HandleHTTP(ActivityStreamHistory)).Methods("GET")
 	// Вывод результата проверки для вложенных проверок
-	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", ActivityStreamHistory).Methods("GET")
+	r.HandleFunc("/act/{group}/{stream}/{stamp:[0-9]+}/{idx:[0-9]+}/raw", HandleHTTP(ActivityStreamHistory)).Methods("GET")
 
 	/* Zabbix integration
 	 */
 	// Discovery data for Zabbix for all groups
-	r.HandleFunc("/zabbix-discovery", zabbixDiscovery()).Methods("GET", "HEAD")
-	r.HandleFunc("/zabbix-discovery/{group}", zabbixDiscovery()).Methods("GET", "HEAD")
+	r.HandleFunc("/zabbix-discovery", HandleHTTP(zabbixDiscovery())).Methods("GET", "HEAD")
+	r.HandleFunc("/zabbix-discovery/{group}", HandleHTTP(zabbixDiscovery())).Methods("GET", "HEAD")
 	// строковое значение ошибки для выбранных группы и канала
-	r.HandleFunc("/mon/error/{group}/{stream}/{astype:int|str}", monError).Methods("GET", "HEAD")
+	r.HandleFunc("/mon/error/{group}/{stream}/{astype:int|str}", HandleHTTP(monError)).Methods("GET", "HEAD")
 	// числовое значение ошибки для выбранных группы и канала в диапазоне errlevel from-upto
-	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel:[a-z]+}-{uptoerrlevel:[a-z]+}", monErrorLevel).Methods("GET")
+	r.HandleFunc("/mon/error/{group}/{stream}/{fromerrlevel:[a-z]+}-{uptoerrlevel:[a-z]+}", HandleHTTP(monErrorLevel)).Methods("GET")
 
 	/* Reports for humans
 	 */
 	// Вывод описания ошибки из анализатора
-	r.HandleFunc("/rpt", ReportIndex).Methods("GET")
-	r.HandleFunc("/rpt/", ReportIndex).Methods("GET")
-	r.HandleFunc("/rpt/{rptid:[0-9]+}", ReportStreamErrors).Methods("GET")
+	r.HandleFunc("/rpt", HandleHTTP(ReportIndex)).Methods("GET")
+	r.HandleFunc("/rpt/", HandleHTTP(ReportIndex)).Methods("GET")
+	r.HandleFunc("/rpt/{rptid:[0-9]+}", HandleHTTP(ReportStreamErrors)).Methods("GET")
 
 	// Obsoleted reports with old API:
 	// r.HandleFunc("/rprt", rprtMainPage).Methods("GET")
@@ -77,7 +86,7 @@ func HttpAPI() {
 	// https://www.zabbix.com/documentation/ru/2.0/manual/discovery/low_level_discovery
 	// new API
 
-	/* Misc static data
+	/* Misc static data. Unauthorized access allowed.
 	 */
 	r.Handle("/css/{{name}}.css", http.FileServer(http.Dir("bootstrap"))).Methods("GET", "HEAD")
 	r.Handle("/js/{{name}}.js", http.FileServer(http.Dir("bootstrap"))).Methods("GET", "HEAD")
@@ -244,8 +253,23 @@ func expvarHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "\n}\n")
 }
 
+// @obsoleted by HandleHTTP()
 func setupHTTP(w *http.ResponseWriter, r *http.Request) map[string]string {
-	(*w).Header().Set("Server", SURFER)
+	//	(*w).Header().Set("Server", SURFER)
 
 	return mux.Vars(r)
+}
+
+// Wrapper for all HTTP handlers.
+// Does authorization and preparation of headers.
+func HandleHTTP(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", SURFER)
+		f(w, r)
+	}
+	if cfg.User != "" && cfg.Pass != "" {
+		return auth.JustCheck(authCheck, handler)
+	} else {
+		return handler
+	}
 }
