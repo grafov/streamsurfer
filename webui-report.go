@@ -3,16 +3,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func ActivityIndex(res http.ResponseWriter, req *http.Request) {
+func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	var tbody [][]string
 
-	vars := setupHTTP(&res, req)
 	data := make(map[string]interface{})
 	if vars["group"] != "" {
 		data["title"] = fmt.Sprintf("List of streams for %s", vars["group"])
@@ -89,8 +89,9 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request) {
 	Page.ExecuteTemplate(res, "activity-index", data)
 }
 
-func ActivityStreamInfo(res http.ResponseWriter, req *http.Request) {
-	vars := setupHTTP(&res, req)
+func ActivityStreamInfo(res http.ResponseWriter, req *http.Request, v map[string]string) {
+	fmt.Printf("%+v\n", req)
+	vars := mux.Vars(req)
 	data := make(map[string]interface{})
 	data["title"] = fmt.Sprintf("%s/%s info", vars["group"], vars["stream"])
 	data["isactivity"] = true
@@ -123,12 +124,11 @@ func ActivityStreamInfo(res http.ResponseWriter, req *http.Request) {
 	Page.ExecuteTemplate(res, "report-stream-info", data)
 }
 
-func ActivityStreamHistory(res http.ResponseWriter, req *http.Request) {
+func ActivityStreamHistory(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	var severity, checktype string
 	var tbody [][]string
 
 	data := make(map[string]interface{})
-	vars := setupHTTP(&res, req)
 	hist, err := LoadHistoryResults(Key{vars["group"], vars["stream"]})
 	if err != nil {
 		http.Error(res, "Stream not found or not tested yet.", http.StatusNotFound)
@@ -210,11 +210,9 @@ FullHistory:
 	Page.ExecuteTemplate(res, "report-stream-history", data)
 }
 
-func ReportIndex(res http.ResponseWriter, req *http.Request) {
+func ReportIndex(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	var tbody [][]string
 	var severity string
-
-	setupHTTP(&res, req)
 
 	data := make(map[string]interface{})
 	data["title"] = "Available reports"
@@ -241,11 +239,9 @@ func ReportIndex(res http.ResponseWriter, req *http.Request) {
 	Page.ExecuteTemplate(res, "report-index", data)
 }
 
-func ReportStreamErrors(res http.ResponseWriter, req *http.Request) {
+func ReportStreamErrors(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	var tbody [][]string
 	var severity string
-
-	setupHTTP(&res, req)
 
 	data := make(map[string]interface{})
 	data["title"] = "Available reports"

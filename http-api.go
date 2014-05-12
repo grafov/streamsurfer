@@ -101,7 +101,7 @@ func HttpAPI() {
 	srv.ListenAndServe()
 }
 
-func rootAPI(res http.ResponseWriter, req *http.Request) {
+func rootAPI(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	data := make(map[string]interface{})
 	data["title"] = cfg.Stubs.Name
 	data["monState"] = StatsGlobals.MonitoringState
@@ -113,11 +113,10 @@ func rootAPI(res http.ResponseWriter, req *http.Request) {
 }
 
 // Webhandler. Возвращает text/plain значение ошибки для выбранных группы и канала.
-func monError(res http.ResponseWriter, req *http.Request) {
+func monError(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	res.Header().Set("Server", SERVER)
 	res.Header().Set("Content-Type", "text/plain")
 
-	vars := mux.Vars(req)
 	if vars["group"] != "" && vars["stream"] != "" {
 		if !StatsGlobals.MonitoringState {
 			switch vars["astype"] { // пока мониторинг остановлен, считаем, что всё ок
@@ -151,11 +150,10 @@ func monError(res http.ResponseWriter, req *http.Request) {
 // Webhandler. Возвращает text/plain значение ошибки для выбранных группы и канала.
 // Если ошибка ниже заданного мин.уровня, то выдаётся 0=OK, если в границах указанных уровней, то 1=PROBLEM,
 // если выше макс.уровня, то 2=FATAL
-func monErrorLevel(res http.ResponseWriter, req *http.Request) {
+func monErrorLevel(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	res.Header().Set("Server", SERVER)
 	res.Header().Set("Content-Type", "text/plain")
 
-	vars := mux.Vars(req)
 	if vars["group"] != "" && vars["stream"] != "" && vars["fromerrlevel"] != "" && vars["uptoerrlevel"] != "" {
 		if !StatsGlobals.MonitoringState {
 			res.Write([]byte("0")) // пока мониторинг остановлен, считаем, что всё ок
@@ -232,14 +230,13 @@ func monErrorLevel(res http.ResponseWriter, req *http.Request) {
 // }
 
 // Zabbix integration (with cfg curried)
-func zabbixDiscovery() func(http.ResponseWriter, *http.Request) {
-	return func(res http.ResponseWriter, req *http.Request) {
-		res.Header().Set("Server", SERVER)
-		res.Write(ZabbixDiscoveryWeb(mux.Vars(req)))
+func zabbixDiscovery() func(http.ResponseWriter, *http.Request, map[string]string) {
+	return func(res http.ResponseWriter, req *http.Request, vars map[string]string) {
+		res.Write(ZabbixDiscoveryWeb(vars))
 	}
 }
 
-func expvarHandler(w http.ResponseWriter, r *http.Request) {
+func expvarHandler(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	fmt.Fprintf(w, "{\n")
 	first := true
@@ -253,19 +250,13 @@ func expvarHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "\n}\n")
 }
 
-// @obsoleted by HandleHTTP()
-func setupHTTP(w *http.ResponseWriter, r *http.Request) map[string]string {
-	//	(*w).Header().Set("Server", SURFER)
-
-	return mux.Vars(r)
-}
-
 // Wrapper for all HTTP handlers.
 // Does authorization and preparation of headers.
-func HandleHTTP(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Server", SURFER)
-		f(w, r)
+func HandleHTTP(f func(http.ResponseWriter, *http.Request, map[string]string)) func(http.ResponseWriter, *http.Request) {
+	handler := func(resp http.ResponseWriter, req *http.Request) {
+		resp.Header().Set("Server", SURFER)
+		//fmt.Printf("%+v %+v\n", req, vars)
+		f(resp, req, nil)
 	}
 	if cfg.User != "" && cfg.Pass != "" {
 		return auth.JustCheck(authCheck, handler)
