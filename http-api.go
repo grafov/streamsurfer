@@ -251,20 +251,25 @@ func HandleHTTP(f func(http.ResponseWriter, *http.Request, map[string]string)) f
 
 	handler := func(resp http.ResponseWriter, req *http.Request) {
 		resp.Header().Set("Server", SURFER)
-		vars := mux.Vars(req)
 		if cfg.User != "" && cfg.Pass != "" {
 			user = checkAuth(req)
 			if user != "" {
 				resp.Header().Set("X-Authenticated-Username", user)
 			} else {
-				resp.Header().Set("WWW-Authenticate", `Basic realm="`+SURFER+`"`)
-				resp.WriteHeader(401)
-				resp.Write([]byte("401 Unauthorized\n"))
+				requireAuth(resp, req, nil)
 			}
 		}
+		vars := mux.Vars(req)
 		f(resp, req, vars)
 	}
 	return handler
+}
+
+// Handler for unauthorized access.
+func requireAuth(w http.ResponseWriter, r *http.Request, v map[string]string) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="`+SURFER+`"`)
+	w.WriteHeader(401)
+	w.Write([]byte("401 Unauthorized\n"))
 }
 
 /*
