@@ -2,19 +2,20 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"expvar"
 	"fmt"
-	auth "github.com/abbot/go-http-auth"
 	"github.com/gorilla/mux"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 )
 
 var Page *template.Template
-var authCheck *auth.BasicAuth
 
 // Elder.
 func HttpAPI() {
@@ -25,13 +26,6 @@ func HttpAPI() {
 		fmt.Printf("Error in template with error %s", err)
 		os.Exit(1)
 	}
-
-	authCheck = auth.NewBasicAuthenticator("Stream Surfer", func(user, realm string) string {
-		if realm == "Stream Surfer" && user == cfg.User {
-			return cfg.Pass
-		}
-		return ""
-	})
 
 	r := mux.NewRouter()
 	r.HandleFunc("/debug", HandleHTTP(expvarHandler)).Methods("GET", "HEAD")
@@ -253,14 +247,70 @@ func expvarHandler(w http.ResponseWriter, r *http.Request, vars map[string]strin
 // Wrapper for all HTTP handlers.
 // Does authorization and preparation of headers.
 func HandleHTTP(f func(http.ResponseWriter, *http.Request, map[string]string)) func(http.ResponseWriter, *http.Request) {
+	var user string
+
 	handler := func(resp http.ResponseWriter, req *http.Request) {
 		resp.Header().Set("Server", SURFER)
-		//fmt.Printf("%+v %+v\n", req, vars)
-		f(resp, req, nil)
+		vars := mux.Vars(req)
+		if cfg.User != "" && cfg.Pass != "" {
+			user = checkAuth(req)
+			if user != "" {
+				resp.Header().Set("X-Authenticated-Username", user)
+			} else {
+				resp.Header().Set("WWW-Authenticate", `Basic realm="`+SURFER+`"`)
+				resp.WriteHeader(401)
+				resp.Write([]byte("401 Unauthorized\n"))
+			}
+		}
+		f(resp, req, vars)
 	}
-	if cfg.User != "" && cfg.Pass != "" {
-		return auth.JustCheck(authCheck, handler)
+	return handler
+}
+
+/*
+ TODO адаптировать вместо использования модуля auth
+
+ Checks the username/password combination from the request. Returns
+ either an empty string (authentication failed) or the name of the
+ authenticated user.
+
+ Supports MD5 and SHA1 password entries
+*/
+func checkAuth(r *http.Request) string {
+	var passwd string
+
+	s := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(s) != 2 || s[0] != "Basic" {
+		return ""
+	}
+
+	b, err := base64.StdEncoding.DecodeString(s[1])
+	if err != nil {
+		return ""
+	}
+	pair := strings.SplitN(string(b), ":", 2)
+	if len(pair) != 2 {
+		return ""
+	}
+	if pair[0] == cfg.User {
+		passwd = cfg.Pass
 	} else {
-		return handler
+		return ""
 	}
+	if passwd[:5] == "{SHA}" {
+		d := sha1.New()
+		d.Write([]byte(pair[1]))
+		if passwd[5:] != base64.StdEncoding.EncodeToString(d.Sum(nil)) {
+			return ""
+		}
+	} else {
+		e := NewMD5Entry(passwd)
+		if e == nil {
+			return ""
+		}
+		if passwd != string(MD5Crypt([]byte(pair[1]), e.Salt, e.Magic)) {
+			return ""
+		}
+	}
+	return pair[0]
 }

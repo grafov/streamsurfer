@@ -3,7 +3,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
 	"strings"
@@ -89,9 +88,8 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]s
 	Page.ExecuteTemplate(res, "activity-index", data)
 }
 
-func ActivityStreamInfo(res http.ResponseWriter, req *http.Request, v map[string]string) {
+func ActivityStreamInfo(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	fmt.Printf("%+v\n", req)
-	vars := mux.Vars(req)
 	data := make(map[string]interface{})
 	data["title"] = fmt.Sprintf("%s/%s info", vars["group"], vars["stream"])
 	data["isactivity"] = true

@@ -40,7 +40,6 @@ Then:
 	go get github.com/grafov/bcast
 	go get github.com/grafov/m3u8
 	go get github.com/gorilla/mux
-	go get github.com/hoisie/mustache
 	git clone https://github.com/grafov/streamsurfer
 	cd streamsurfer
 	sudo make install
