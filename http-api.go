@@ -257,6 +257,7 @@ func HandleHTTP(f func(http.ResponseWriter, *http.Request, map[string]string)) f
 				resp.Header().Set("X-Authenticated-Username", user)
 			} else {
 				requireAuth(resp, req, nil)
+				return
 			}
 		}
 		vars := mux.Vars(req)
