@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// TODO выводить среднее время ответов
 func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	var tbody [][]string
 
@@ -19,9 +20,9 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]s
 		data["title"] = "List of streams"
 	}
 	if vars["group"] != "" {
-		data["thead"] = []string{"Name", "Checks", "Problems (3 min)", "Problems (last 15 min)", "Problems (last 1 hour)"}
+		data["thead"] = []string{"Name", "Checks", "Avg. resp.time", "Problems (3 min)", "Problems (last 15 min)", "Problems (last 1 hour)"}
 	} else {
-		data["thead"] = []string{"Group", "Name", "Checks", "Problems (last 3 min)", "Problems (last 15 min)", "Problems (last 1 hour)"}
+		data["thead"] = []string{"Group", "Name", "Checks", "Avg. resp.time", "Problems (last 3 min)", "Problems (last 15 min)", "Problems (last 1 hour)"}
 	}
 	data["isactivity"] = true
 	for gname := range cfg.GroupParams {
@@ -69,6 +70,7 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]s
 					severity,
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
 					strconv.FormatInt(stats.Checks, 10),
+					"0",
 					strconv.Itoa(errcountShort),
 					strconv.Itoa(errcountMid),
 					strconv.Itoa(errcountLong)})
@@ -78,6 +80,7 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]s
 					href(fmt.Sprintf("/act/%s", gname), gname),
 					href(fmt.Sprintf("/act/%s/%s", gname, stream.Name), stream.Name),
 					strconv.FormatInt(stats.Checks, 10),
+					"0",
 					strconv.Itoa(errcountShort),
 					strconv.Itoa(errcountMid),
 					strconv.Itoa(errcountLong)})
@@ -216,7 +219,7 @@ func ReportIndex(res http.ResponseWriter, req *http.Request, vars map[string]str
 	data["title"] = "Available reports"
 	data["isreport"] = true
 	data["thead"] = []string{"Date", "Severity", "Title"}
-	reports := []Report{} //LoadReports()
+	reports := LoadReports()
 	for _, report := range reports {
 		switch report.Severity {
 		case INFO:
@@ -245,7 +248,7 @@ func ReportStreamErrors(res http.ResponseWriter, req *http.Request, vars map[str
 	data["title"] = "Available reports"
 	data["isreport"] = true
 	data["thead"] = []string{"Date", "Severity", "Title"}
-	reports := []Report{} //LoadReports()
+	reports := LoadReports()
 	for _, report := range reports {
 		switch report.Severity {
 		case INFO:

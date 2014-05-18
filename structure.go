@@ -179,7 +179,7 @@ func (k *Key) String() string {
 	return fmt.Sprintf("%s/%s", k.Group, k.Name)
 }
 
-// запросы на сохранение статистики
+// запросppы на сохранение статистики
 type StatInQuery struct {
 	Stream Stream
 	Last   Stats
@@ -229,4 +229,22 @@ type ErrTotalHistoryKey struct {
 type PageValues struct {
 	Title string
 	Data  interface{}
+}
+
+// Report about the occured errors
+type Report struct {
+	Error          ErrType
+	Severity       Severity
+	Title          string
+	Body           string
+	RelatedGroups  []*Group
+	RelatedStreams []*Stream
+	RelatedTasks   []*Task
+	Generated      time.Time
+}
+
+// Notes last checked point for the stream
+type CheckPoint struct {
+	Tid     int64
+	Occured time.Time
 }

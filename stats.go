@@ -107,22 +107,9 @@ func StatKeeper() {
 				key.ReplyTo <- data
 			}
 
-			// if data, ok := errors[key.Key]; ok {
-			// 	for _, val := range data {
-			// 		if val.Started.After(key.From) && val.Started.Before(key.To) {
-			// 			result = append(result, val)
-			// 		}
-			// 	}
-			// 	key.ReplyTo <- result
-			// } else {
-			// 	data, err := RedLoadErrors(key.Key, key.From, key.To)
-			// 	if err != nil {
-			// 		key.ReplyTo <- nil
-			// 	} else {
-			// 		key.ReplyTo <- data
-			// 	}
-			// 	errors[key] = data
-			// }
+		default: // expired keys cleanup
+			RemoveExpiredErrors(cfg.ExpireDurationDB)
+			RemoveExpiredResults(cfg.ExpireDurationDB)
 		}
 	}
 }
@@ -158,6 +145,7 @@ func LoadLastResult(key Key) (KeepedResult, error) {
 }
 
 // Получить статистику по каналу за всё время наблюдения.
+// TODO добавить фильтр по времени (начиная с)
 func LoadHistoryResults(key Key) ([]KeepedResult, error) {
 	result := make(chan []KeepedResult)
 	resultOut <- ResultOutQuery{Key: key, ReplyTo: result}

@@ -15,17 +15,18 @@ import (
 
 // parsed and validated config data
 type Config struct {
-	GroupParams  map[string]*configGroup
-	GroupStreams map[string]*[]Stream // map[groupname]stream
-	Stubs        configStub
-	Zabbix       configZabbix
-	Samples      []string
-	ListenHTTP   string
-	User         string
-	Pass         string
-	UserAgents   []string
-	ErrorLog     string
-	IsReady      chan bool // config parsed and ready to use
+	GroupParams      map[string]*configGroup
+	GroupStreams     map[string]*[]Stream // map[groupname]stream
+	Stubs            configStub
+	Zabbix           configZabbix
+	Samples          []string
+	ListenHTTP       string
+	User             string
+	Pass             string
+	UserAgents       []string
+	ErrorLog         string
+	ExpireDurationDB time.Duration // measured in hours
+	IsReady          chan bool     // config parsed and ready to use
 }
 
 // parsed grup config
@@ -61,15 +62,16 @@ type configStub struct {
 
 // raw config data
 type configYAML struct {
-	ListenHTTP string                     `yaml:"http-api-listen,omitempty"`
-	User       string                     `yaml:"http-api-user,omitempty"`
-	Pass       string                     `yaml:"http-api-pass,omitempty"`
-	Stubs      configStub                 `yaml:"stubs,omitempty"`
-	Zabbix     configZabbix               `yaml:"zabbix,omitempty"`
-	Samples    []string                   `yaml:"unmortal,omitempty"`
-	UserAgents []string                   `yaml:"user-agents,omitempty"`
-	Defaults   configGroupYAML            `yaml:"defaults,omitempty"`
-	Groups     map[string]configGroupYAML `yaml:"groups,omitempty"`
+	ListenHTTP       string                     `yaml:"http-api-listen,omitempty"`
+	User             string                     `yaml:"http-api-user,omitempty"`
+	Pass             string                     `yaml:"http-api-pass,omitempty"`
+	Stubs            configStub                 `yaml:"stubs,omitempty"`
+	Zabbix           configZabbix               `yaml:"zabbix,omitempty"`
+	Samples          []string                   `yaml:"unmortal,omitempty"`
+	UserAgents       []string                   `yaml:"user-agents,omitempty"`
+	Defaults         configGroupYAML            `yaml:"defaults,omitempty"`
+	Groups           map[string]configGroupYAML `yaml:"groups,omitempty"`
+	ExpireDurationDB time.Duration              `yaml:"db-expired"` // measured in hours
 }
 
 // rawconfig group data
@@ -157,6 +159,7 @@ func parseOptionsConfig(rawcfg *configYAML) {
 	cfg.Zabbix = rawcfg.Zabbix
 	cfg.Samples = rawcfg.Samples
 	cfg.UserAgents = rawcfg.UserAgents
+	cfg.ExpireDurationDB = rawcfg.ExpireDurationDB * time.Hour
 }
 
 //

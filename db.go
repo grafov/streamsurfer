@@ -132,3 +132,31 @@ func RedLoadErrors(key Key, from, to time.Time) (map[time.Time]ErrType, error) {
 		return nil, err
 	}
 }
+
+// Remove expired errors from the Redis sorted set
+func RemoveExpiredErrors(expired time.Duration) {
+	conn := redisPool.Get()
+	defer conn.Close()
+	for gname := range cfg.GroupParams {
+		for _, stream := range *cfg.GroupStreams[gname] {
+			key := Key{gname, stream.Name}
+			if deleted, _ := redis.Int(conn.Do("ZREMRANGEBYSCORE", fmt.Sprintf("errors/%s", key.String()), "-inf", strconv.FormatInt(time.Now().Add(-expired).Unix(), 10))); deleted > 0 {
+				fmt.Printf("%d expired elements from `errors` set `%s` deleted\n", deleted, key)
+			}
+		}
+	}
+}
+
+// Remove expired errors from the Redis sorted set
+func RemoveExpiredResults(expired time.Duration) {
+	conn := redisPool.Get()
+	defer conn.Close()
+	for gname := range cfg.GroupParams {
+		for _, stream := range *cfg.GroupStreams[gname] {
+			key := Key{gname, stream.Name}
+			if deleted, _ := redis.Int(conn.Do("ZREMRANGEBYSCORE", fmt.Sprintf("%s", key.String()), "-inf", strconv.FormatInt(time.Now().Add(-expired).Unix(), 10))); deleted > 0 {
+				fmt.Printf("%d expired elements from `results` set `%s` deleted\n", deleted, key)
+			}
+		}
+	}
+}

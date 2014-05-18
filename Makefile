@@ -1,3 +1,4 @@
+export GOPATH=/home/axel/go
 SOURCES=streamsurfer.go structure.go config.go monitor.go monitor-prober.go http-client.go http-api.go stats.go logger.go zabbix.go helpers.go helpers-md5.go templates.go webui-report.go analyzer.go db.go # reports.go source-loader.go
 HTML=html/*.html
 LDFLAGS="-X main.build_date `date -u +%Y%m%d%H%M%S`"
