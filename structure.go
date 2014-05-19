@@ -257,3 +257,51 @@ type ErrRange struct {
 	Discontinued time.Time
 	Err          ErrType
 }
+
+/*
+
+task1  change tid → isTaskOK
+mas    isCheckOK = true
+med1   isCheckOK = true
+*med2  isCheckOK=false isTaskOK=false  make forSave, start range
+med3   isCheckOK=true isTaskOK=false
+
+!isTaskOK → continue range
+
+task2 isTaskOK = true
+mas   isCheckOK=true
+med1  isCheckOK=true
+*med2  isCheckOK=false isTaskOK=false make forSave
+med3 isCheckOK=true
+
+!isTaskOK → continue range
+
+task2 isTaskOK = true
+mas   isCheckOK=true
+med1  isCheckOK=true
+*med2  isCheckOK=false isTaskOK=false make forSave
+med3 isCheckOK=true
+
+isTaskOK && forSave → append range
+
+
+
+------------------------------------
+
+if prevTid > 0 && prevTid != curTid
+  if taskOK && forSave
+    save range
+  else
+    taskOK=true
+    prevTid = curTid
+
+if prevTid == 0
+  prevTid = curTid
+
+if ERR
+  taskOK=false
+  prpare forSave (start, stop, tid0, tid1)
+
+
+
+*/

@@ -155,7 +155,7 @@ func GroupBox(ctl *bcast.Group, group string, streamType StreamType, taskq chan 
 func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 	var checkCount uint64 // число прошедших проверок
 	var addSleepToBrokenStream time.Duration
-	var tid int64
+	var tid int64 = time.Now().Unix() // got increasing offset on each program start
 	var min, max int
 	var command Command
 	var online bool = false

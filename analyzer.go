@@ -35,7 +35,7 @@ func ProblemAnalyzer() {
 	)
 
 	for {
-		time.Sleep(20 * time.Second)
+		time.Sleep(10 * time.Second)
 		for gname, gdata := range cfg.GroupParams {
 			for _, stream := range *cfg.GroupStreams[gname] {
 				key = Key{gname, stream.Name}
@@ -85,48 +85,103 @@ func LoadReports() []Report {
 // Analyze HLS and form report with error states.
 func analyzeHLS(key Key, hist []KeepedResult, lastCheck *CheckPoint) (reports []Report) {
 	var (
-		isProblem      bool       // stream has problem for checked timestamp
-		start, stop    time.Time  // start and stop timestamps of error period
-		fromTid, toTid int64      // task id
-		errlevel       ErrType    // error level
-		errorRanges    []ErrRange // keep ranges with error states of the stream
+		isProblem           bool                    // problem detected in the stream
+		isCheckOK, isTaskOK bool       = true, true // statuses for current check and task
+		start, stop         time.Time               // start and stop timestamps of error period
+		fromTid, toTid, tid int64                   // task id
+		errlevel            ErrType                 // error level
+		errorRanges         []ErrRange              // ranges with error states of the stream
+		forSave             *ErrRange               // continious range of failed tasks
 	)
 
 	for _, hitem := range hist {
 		if hitem.Started.Before(lastCheck.Occured) {
 			continue
 		}
-		// TODO учитывать дырки в мониторинге, между проверками должно быть не более 10 мин., иначе период закрывается
+
+		/*
+			We check for an each check in an each task in results set. Task interpreted as problem if error occured in
+			the any single check. Then we aggregate problem tasks into error ranges ([]ErrRange). Report builder then
+			analyze error ranges and make reports on them.
+		*/
 		if hitem.ErrType > ERROR_LEVEL {
-			if isProblem { // ошибки продолжаются, продление периода ошибок
-				stop = hitem.Started.Add(hitem.Elapsed)
-				toTid = hitem.Tid
-			} else { // начало периода с ошибками
-				start = hitem.Started
-				fromTid = hitem.Tid
-				toTid = fromTid
-				stop = hitem.Started.Add(hitem.Elapsed)
-				isProblem = true
-			}
-			if hitem.ErrType > errlevel { // записываем макс. уровень ошибок
+			isCheckOK = false
+			if errlevel < hitem.ErrType {
 				errlevel = hitem.ErrType
 			}
-		} else {
-			if isProblem { // фиксация окончания периода ошибок
+
+			if !isProblem { // range started
+				fromTid = hitem.Tid
+				toTid = hitem.Tid
+				start = hitem.Started
 				stop = hitem.Started.Add(hitem.Elapsed)
-				if hitem.Tid != toTid { // в задаче достаточно одной ошибочной проверки, для выставления статуса isProblem
-					if errlevel > 0 {
-						errorRanges = append(errorRanges, ErrRange{fromTid, hitem.Tid, start, stop, errlevel})
-					}
-					errlevel = 0 // reset range
-					isProblem = false
-				}
+				isProblem = true
+			} else { // range continued
+				toTid = hitem.Tid
+				stop = hitem.Started.Add(hitem.Elapsed)
+			}
+
+			if isProblem {
+				forSave = &ErrRange{fromTid, toTid, start, stop, errlevel}
 			}
 		}
-		if fromTid == 0 {
-			fromTid = hitem.Tid
+
+		if tid != 0 && tid == hitem.Tid { // это следующая проверка в той же задаче
+			if !isCheckOK {
+				isTaskOK = false
+			}
 		}
-		toTid = hitem.Tid
+
+		if tid != 0 && tid != hitem.Tid { // обнаружена смена задачи
+			if isTaskOK {
+				isProblem = false
+				isCheckOK = true
+				if forSave != nil {
+					errorRanges = append(errorRanges, *forSave)
+				}
+			}
+			isTaskOK = true
+		}
+
+		tid = hitem.Tid
+
+		// // TODO учитывать дырки в мониторинге, между проверками должно быть не более 10 мин., иначе период закрывается
+		// if hitem.ErrType > ERROR_LEVEL {
+		// 	if isProblem { // ошибки продолжаются, продление периода ошибок
+		// 		stop = hitem.Started.Add(hitem.Elapsed)
+		// 		toTid = hitem.Tid
+		// 	} else { // начало периода с ошибками
+		// 		start = hitem.Started
+		// 		fromTid = hitem.Tid
+		// 		toTid = fromTid
+		// 		stop = hitem.Started.Add(hitem.Elapsed)
+		// 		isProblem = true
+		// 	}
+		// 	if hitem.ErrType > errlevel { // записываем макс. уровень ошибок
+		// 		errlevel = hitem.ErrType
+		// 	}
+		// } else {
+		// 	if isProblem { // фиксация окончания периода ошибок
+		// 		stop = hitem.Started.Add(hitem.Elapsed)
+		// 		if markForSave != nil {
+		// 			// 	if hitem.Tid != markForSave.ToTid { // последняя задача была с ошибками
+		// 			// 		goodTask = true
+		// 			// 	}
+		// 			// if hitem.Tid != toTid && errlevel > 0 { // в задаче достаточно одной ошибочной проверки, для выставления статуса isProblem
+		// 			// 	markForSave = &ErrRange{fromTid, hitem.Tid, start, stop, errlevel}
+		// 			// }
+		// 			// 	if errlevel > 0 {
+		// 			// 		errorRanges = append(errorRanges, ErrRange{fromTid, hitem.Tid, start, stop, errlevel})
+		// 			// 	}
+		// 			// 	errlevel = 0 // reset range
+		// 			// 	isProblem = false
+		// 		}
+		// 	}
+		// }
+		// if fromTid == 0 {
+		// 	fromTid = hitem.Tid
+		// }
+		// toTid = hitem.Tid
 	}
 	lastCheck = &CheckPoint{toTid, stop}
 	if isProblem && errlevel > 0 { // период остался незакрыт
