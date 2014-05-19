@@ -22,69 +22,50 @@ import (
 
 */
 
+/*
+ * Public API
+ */
+
 // Анализирует проблемы связей между отдельными потоками и группы потоков на серверах.
 func ProblemAnalyzer() {
 	var (
 		lastAnalyzed map[Key]CheckPoint = make(map[Key]CheckPoint)
-		conclusion   Report
+		key          Key
+		conclusion   []Report
 	)
 
 	for {
-		time.Sleep(30 * time.Second)
+		time.Sleep(20 * time.Second)
 		for gname, gdata := range cfg.GroupParams {
 			for _, stream := range *cfg.GroupStreams[gname] {
-				key := Key{gname, stream.Name}
+				key = Key{gname, stream.Name}
 				if _, ok := lastAnalyzed[key]; !ok {
-					lastAnalyzed[key] = CheckPoint{0, time.Now().Add(-12 * time.Hour)}
+					startpoint := time.Now().Add(-12 * time.Hour)
+					lastAnalyzed[key] = CheckPoint{0, startpoint}
 				}
+				checkPoint := lastAnalyzed[key]
 				hist, err := LoadHistoryResults(key) // TODO загружать только результаты после времени lastAnalyzed
 				if err != nil {
 					continue
 				}
 				switch gdata.Type {
 				case HLS:
-					conclusion, lastAnalyzed[key] = AnalyzeHLS(hist, lastAnalyzed[key])
+					conclusion = analyzeHLS(key, hist, &checkPoint)
 				case HDS:
-					conclusion = AnalyzeHDS(hist)
+					conclusion = analyzeHDS(hist)
 				case HTTP:
-					conclusion = AnalyzeHTTP(hist)
+					conclusion = analyzeHTTP(hist)
 				}
-				// TODO save new checkpoint
+				lastAnalyzed[key] = checkPoint
+				// TODO save new checkpoint to DB
 			}
-			fmt.Printf("%v\n", conclusion)
+			if len(conclusion) > 0 {
+				fmt.Printf("conclusion for %s %v\n", key.String(), conclusion)
+			}
 			// TODO дополнительно делать анализ для всей группы
 		}
 		// TODO RemoveExpiredReports(cfg.ExpireDurationDB)
 	}
-}
-
-func AnalyzeHLS(hist []KeepedResult, lastCheck CheckPoint) (Report, CheckPoint) {
-	var (
-		report    Report
-		isProblem bool
-	)
-
-	for _, hitem := range hist {
-		if hitem.Started.Before(lastCheck.Occured) {
-			continue
-		}
-		if hitem.ErrType > ERROR_LEVEL {
-			if isProblem { // начало периода с ошибками
-
-			} else {
-				isProblem = true
-			}
-		}
-	}
-	return report, lastCheck
-}
-
-func AnalyzeHDS(hist []KeepedResult) Report {
-	return Report{}
-}
-
-func AnalyzeHTTP(hist []KeepedResult) Report {
-	return Report{}
 }
 
 // Report found problems from problem analyzer
@@ -95,4 +76,87 @@ func ProblemReporter() {
 
 func LoadReports() []Report {
 	return nil
+}
+
+/*
+ * Private realization
+ */
+
+// Analyze HLS and form report with error states.
+func analyzeHLS(key Key, hist []KeepedResult, lastCheck *CheckPoint) (reports []Report) {
+	var (
+		isProblem      bool       // stream has problem for checked timestamp
+		start, stop    time.Time  // start and stop timestamps of error period
+		fromTid, toTid int64      // task id
+		errlevel       ErrType    // error level
+		errorRanges    []ErrRange // keep ranges with error states of the stream
+	)
+
+	for _, hitem := range hist {
+		if hitem.Started.Before(lastCheck.Occured) {
+			continue
+		}
+		// TODO учитывать дырки в мониторинге, между проверками должно быть не более 10 мин., иначе период закрывается
+		if hitem.ErrType > ERROR_LEVEL {
+			if isProblem { // ошибки продолжаются, продление периода ошибок
+				stop = hitem.Started.Add(hitem.Elapsed)
+				toTid = hitem.Tid
+			} else { // начало периода с ошибками
+				start = hitem.Started
+				fromTid = hitem.Tid
+				toTid = fromTid
+				stop = hitem.Started.Add(hitem.Elapsed)
+				isProblem = true
+			}
+			if hitem.ErrType > errlevel { // записываем макс. уровень ошибок
+				errlevel = hitem.ErrType
+			}
+		} else {
+			if isProblem { // фиксация окончания периода ошибок
+				stop = hitem.Started.Add(hitem.Elapsed)
+				if hitem.Tid != toTid { // в задаче достаточно одной ошибочной проверки, для выставления статуса isProblem
+					if errlevel > 0 {
+						errorRanges = append(errorRanges, ErrRange{fromTid, hitem.Tid, start, stop, errlevel})
+					}
+					errlevel = 0 // reset range
+					isProblem = false
+				}
+			}
+		}
+		if fromTid == 0 {
+			fromTid = hitem.Tid
+		}
+		toTid = hitem.Tid
+	}
+	lastCheck = &CheckPoint{toTid, stop}
+	if isProblem && errlevel > 0 { // период остался незакрыт
+		errorRanges = append(errorRanges, ErrRange{fromTid, toTid, start, stop, errlevel})
+	}
+	if len(errorRanges) > 0 {
+		fmt.Printf("err range for %s %v\n", key.String(), errorRanges)
+	}
+	// Permanent errors report. Error is permanent if it continued more than 10 minute.
+	for _, val := range errorRanges {
+		if val.Discontinued.Sub(val.Occured) > 10*time.Minute {
+			reports = append(reports, generatePermanentErrorsReport(key, errorRanges, isProblem))
+		}
+	}
+	return reports
+}
+
+func analyzeHDS(hist []KeepedResult) []Report {
+	return []Report{}
+}
+
+func analyzeHTTP(hist []KeepedResult) []Report {
+	return []Report{}
+}
+
+/*
+ * Report generators
+ */
+
+// Permanent errors report generator
+func generatePermanentErrorsReport(key Key, ranges []ErrRange, errorPersists bool) Report {
+	return Report{Title: "Sample report"}
 }

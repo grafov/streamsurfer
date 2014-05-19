@@ -243,8 +243,17 @@ type Report struct {
 	Generated      time.Time
 }
 
-// Notes last checked point for the stream
+// Notes last checked point for the stream.
 type CheckPoint struct {
 	Tid     int64
 	Occured time.Time
+}
+
+// Range of errors in the stream. For usage in reports.
+type ErrRange struct {
+	FromTid      int64
+	ToTid        int64
+	Occured      time.Time
+	Discontinued time.Time
+	Err          ErrType
 }

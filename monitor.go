@@ -155,6 +155,7 @@ func GroupBox(ctl *bcast.Group, group string, streamType StreamType, taskq chan 
 func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq chan *Task, debugvars *expvar.Map) {
 	var checkCount uint64 // число прошедших проверок
 	var addSleepToBrokenStream time.Duration
+	var tid int64
 	var min, max int
 	var command Command
 	var online bool = false
@@ -202,6 +203,8 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 			max = int(cfg.Params(stream.Group).TimeBetweenTasks)
 			min = int(cfg.Params(stream.Group).TimeBetweenTasks / 4. * 3.)
 			time.Sleep(time.Duration(rand.Intn(max-min)+min)*time.Second + addSleepToBrokenStream) // randomize streams order
+			tid++
+			task.Tid = tid
 			task.TTL = time.Now().Add(time.Duration(cfg.Params(stream.Group).TaskTTL * time.Second))
 			stats.Checks++ // TODO potentially overflow
 			taskq <- task
@@ -211,7 +214,7 @@ func StreamBox(ctl *bcast.Group, stream Stream, streamType StreamType, taskq cha
 				continue
 			} else {
 				checkCount++
-				if checkCount > 2 {
+				if checkCount > 144 {
 					fmt.Printf("Repeated %d times %s\n", checkCount, task.Name)
 				}
 			}

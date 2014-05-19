@@ -14,6 +14,11 @@ import (
 
 var redisPool *redis.Pool
 
+/*
+ * Public API
+ */
+
+// Initialize subsystem. Must preceed API calls to storage subsys.
 func InitStorage() {
 	redisPool = &redis.Pool{
 		MaxIdle:     3,
@@ -33,6 +38,7 @@ func InitStorage() {
 	}
 }
 
+// Save monitoring data to DB.
 func RedKeepResult(key Key, weight time.Time, res Result) error {
 	//var buf bytes.Buffer
 
@@ -141,7 +147,7 @@ func RemoveExpiredErrors(expired time.Duration) {
 		for _, stream := range *cfg.GroupStreams[gname] {
 			key := Key{gname, stream.Name}
 			if deleted, _ := redis.Int(conn.Do("ZREMRANGEBYSCORE", fmt.Sprintf("errors/%s", key.String()), "-inf", strconv.FormatInt(time.Now().Add(-expired).Unix(), 10))); deleted > 0 {
-				fmt.Printf("%d expired elements from `errors` set `%s` deleted\n", deleted, key)
+				// fmt.Printf("%d expired elements from `errors` set `%s` deleted\n", deleted, key)
 			}
 		}
 	}
@@ -155,7 +161,7 @@ func RemoveExpiredResults(expired time.Duration) {
 		for _, stream := range *cfg.GroupStreams[gname] {
 			key := Key{gname, stream.Name}
 			if deleted, _ := redis.Int(conn.Do("ZREMRANGEBYSCORE", fmt.Sprintf("%s", key.String()), "-inf", strconv.FormatInt(time.Now().Add(-expired).Unix(), 10))); deleted > 0 {
-				fmt.Printf("%d expired elements from `results` set `%s` deleted\n", deleted, key)
+				// fmt.Printf("%d expired elements from `results` set `%s` deleted\n", deleted, key)
 			}
 		}
 	}

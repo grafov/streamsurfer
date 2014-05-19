@@ -84,7 +84,7 @@ func StatKeeper() {
 		case state := <-resultIn: // incoming results from streamboxes
 			//results[Key{state.Stream.Group, state.Stream.Name}] = append(results[Key{state.Stream.Group, state.Stream.Name}], state.Last)
 			RedKeepResult(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last)
-			if state.Last.ErrType >= WARNING_LEVEL {
+			if state.Last.ErrType > WARNING_LEVEL {
 				RedKeepError(Key{state.Stream.Group, state.Stream.Name}, state.Last.Started, state.Last.ErrType)
 			}
 			//		delete(errors, Key{state.Stream.Group, state.Stream.Name})

@@ -99,7 +99,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 						for _, variant := range m.Variants {
 							uri, err := url.Parse(variant.URI)
 							if err != nil {
-								subresult <- &Result{Task: &Task{Stream: Stream{variant.URI, HLS, task.Name, task.Title, task.Group}}, ErrType: BADURI, Started: time.Now()}
+								subresult <- &Result{Task: &Task{Tid: task.Tid, Stream: Stream{variant.URI, HLS, task.Name, task.Title, task.Group}}, ErrType: BADURI, Started: time.Now()}
 								continue
 							}
 							var suburi string
@@ -114,7 +114,7 @@ func CupertinoProber(ctl *bcast.Group, tasks chan *Task, debugvars *expvar.Map) 
 									suburi = strings.Join(splitted, "/")
 								}
 							}
-							subtask := &Task{Stream: Stream{suburi, HLS, task.Name, task.Title, task.Group}, ReadBody: task.ReadBody, TTL: task.TTL}
+							subtask := &Task{Tid: task.Tid, Stream: Stream{suburi, HLS, task.Name, task.Title, task.Group}, ReadBody: task.ReadBody, TTL: task.TTL}
 							go func(subtask *Task) {
 								subresult <- ExecHTTP(subtask)
 							}(subtask)

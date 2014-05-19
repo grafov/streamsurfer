@@ -9,6 +9,16 @@ import (
 	"time"
 )
 
+var ( // TODO refactore it
+	кешОшибок1ч map[time.Time]ErrType // быстрое решение для ускорения загрузки кучи данных из редиса
+	кешТаймер   time.Time
+)
+
+// Initialize reporting subsystem.
+func InitReports() {
+	кешОшибок1ч = make(map[time.Time]ErrType)
+}
+
 // TODO выводить среднее время ответов
 func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]string) {
 	var tbody [][]string
@@ -50,9 +60,15 @@ func ActivityIndex(res http.ResponseWriter, req *http.Request, vars map[string]s
 					}
 				}
 			}
-			hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 3*time.Minute)
 			errcountShort := 0
+			if len(кешОшибок1ч) > 0 && time.Since(кешТаймер) <= 10*time.Minute {
+				hist = кешОшибок1ч
+				err = nil
+			} else {
+				hist, err = LoadHistoryErrors(Key{gname, stream.Name}, 3*time.Minute)
+			}
 			if err == nil {
+				кешОшибок1ч = hist
 				for _, val := range hist {
 					if val > ERROR_LEVEL {
 						severity = "error"
