@@ -40,7 +40,7 @@ func ProblemAnalyzer() {
 			for _, stream := range *cfg.GroupStreams[gname] {
 				key = Key{gname, stream.Name}
 				if _, ok := lastAnalyzed[key]; !ok {
-					startpoint := time.Now().Add(-12 * time.Hour)
+					startpoint := time.Now().Add(-2 * time.Hour)
 					lastAnalyzed[key] = CheckPoint{0, startpoint}
 				}
 				checkPoint := lastAnalyzed[key]
@@ -83,15 +83,18 @@ func LoadReports() []Report {
  */
 
 // Analyze HLS and form report with error states.
+// We check for an each check in an each task in results set. Task interpreted as problem if error occured in
+// the any single check. Then we aggregate problem tasks into error ranges ([]ErrRange). Report builder then
+// analyze error ranges and make reports on them.
 func analyzeHLS(key Key, hist []KeepedResult, lastCheck *CheckPoint) (reports []Report) {
 	var (
-		isProblem           bool                    // problem detected in the stream
-		isCheckOK, isTaskOK bool       = true, true // statuses for current check and task
-		start, stop         time.Time               // start and stop timestamps of error period
-		fromTid, toTid, tid int64                   // task id
-		errlevel            ErrType                 // error level
-		errorRanges         []ErrRange              // ranges with error states of the stream
-		forSave             *ErrRange               // continious range of failed tasks
+		isRangeOpened           bool              // problem under analyzator cursor
+		isTaskOK                bool       = true // statuses for current check and task
+		start, stop             time.Time         // start and stop timestamps of error period
+		prevTid, fromTid, toTid int64             // task id
+		errlevel                ErrType           // error level
+		errorRanges             []ErrRange        // ranges with error states of the stream
+		forSave                 *ErrRange         // continious range of failed tasks
 	)
 
 	for _, hitem := range hist {
@@ -99,92 +102,46 @@ func analyzeHLS(key Key, hist []KeepedResult, lastCheck *CheckPoint) (reports []
 			continue
 		}
 
-		/*
-			We check for an each check in an each task in results set. Task interpreted as problem if error occured in
-			the any single check. Then we aggregate problem tasks into error ranges ([]ErrRange). Report builder then
-			analyze error ranges and make reports on them.
-		*/
+		if key.Name == "sd_2014_game_of_thrones_04_02_film" {
+			fmt.Printf("+++ %d %d %d %d %s %d %+v\n", prevTid, hitem.Tid, fromTid, toTid, isTaskOK, errlevel, forSave)
+		}
+
+		if prevTid > 0 && prevTid != hitem.Tid { // переход задач
+			if isTaskOK && forSave != nil { // период ошибок кончился
+				errorRanges = append(errorRanges, *forSave)
+				forSave = nil
+				isRangeOpened = false
+			} else {
+				isTaskOK = true
+			}
+			prevTid = hitem.Tid
+		}
+
+		if prevTid == 0 {
+			prevTid = hitem.Tid
+		}
+
 		if hitem.ErrType > ERROR_LEVEL {
-			isCheckOK = false
-			if errlevel < hitem.ErrType {
+			isTaskOK = false
+			if hitem.ErrType > errlevel {
 				errlevel = hitem.ErrType
 			}
-
-			if !isProblem { // range started
+			if !isRangeOpened {
+				isRangeOpened = true
 				fromTid = hitem.Tid
-				toTid = hitem.Tid
 				start = hitem.Started
-				stop = hitem.Started.Add(hitem.Elapsed)
-				isProblem = true
-			} else { // range continued
+				toTid = fromTid
+				stop = start
+			} else {
 				toTid = hitem.Tid
 				stop = hitem.Started.Add(hitem.Elapsed)
 			}
-
-			if isProblem {
-				forSave = &ErrRange{fromTid, toTid, start, stop, errlevel}
-			}
+			forSave = &ErrRange{fromTid, hitem.Tid, start, stop, errlevel}
 		}
-
-		if tid != 0 && tid == hitem.Tid { // это следующая проверка в той же задаче
-			if !isCheckOK {
-				isTaskOK = false
-			}
-		}
-
-		if tid != 0 && tid != hitem.Tid { // обнаружена смена задачи
-			if isTaskOK {
-				isProblem = false
-				isCheckOK = true
-				if forSave != nil {
-					errorRanges = append(errorRanges, *forSave)
-				}
-			}
-			isTaskOK = true
-		}
-
-		tid = hitem.Tid
-
-		// // TODO учитывать дырки в мониторинге, между проверками должно быть не более 10 мин., иначе период закрывается
-		// if hitem.ErrType > ERROR_LEVEL {
-		// 	if isProblem { // ошибки продолжаются, продление периода ошибок
-		// 		stop = hitem.Started.Add(hitem.Elapsed)
-		// 		toTid = hitem.Tid
-		// 	} else { // начало периода с ошибками
-		// 		start = hitem.Started
-		// 		fromTid = hitem.Tid
-		// 		toTid = fromTid
-		// 		stop = hitem.Started.Add(hitem.Elapsed)
-		// 		isProblem = true
-		// 	}
-		// 	if hitem.ErrType > errlevel { // записываем макс. уровень ошибок
-		// 		errlevel = hitem.ErrType
-		// 	}
-		// } else {
-		// 	if isProblem { // фиксация окончания периода ошибок
-		// 		stop = hitem.Started.Add(hitem.Elapsed)
-		// 		if markForSave != nil {
-		// 			// 	if hitem.Tid != markForSave.ToTid { // последняя задача была с ошибками
-		// 			// 		goodTask = true
-		// 			// 	}
-		// 			// if hitem.Tid != toTid && errlevel > 0 { // в задаче достаточно одной ошибочной проверки, для выставления статуса isProblem
-		// 			// 	markForSave = &ErrRange{fromTid, hitem.Tid, start, stop, errlevel}
-		// 			// }
-		// 			// 	if errlevel > 0 {
-		// 			// 		errorRanges = append(errorRanges, ErrRange{fromTid, hitem.Tid, start, stop, errlevel})
-		// 			// 	}
-		// 			// 	errlevel = 0 // reset range
-		// 			// 	isProblem = false
-		// 		}
-		// 	}
-		// }
-		// if fromTid == 0 {
-		// 	fromTid = hitem.Tid
-		// }
-		// toTid = hitem.Tid
 	}
+
 	lastCheck = &CheckPoint{toTid, stop}
-	if isProblem && errlevel > 0 { // период остался незакрыт
+	if isRangeOpened && errlevel > 0 { // период остался незакрыт
 		errorRanges = append(errorRanges, ErrRange{fromTid, toTid, start, stop, errlevel})
 	}
 	if len(errorRanges) > 0 {
@@ -193,7 +150,7 @@ func analyzeHLS(key Key, hist []KeepedResult, lastCheck *CheckPoint) (reports []
 	// Permanent errors report. Error is permanent if it continued more than 10 minute.
 	for _, val := range errorRanges {
 		if val.Discontinued.Sub(val.Occured) > 10*time.Minute {
-			reports = append(reports, generatePermanentErrorsReport(key, errorRanges, isProblem))
+			reports = append(reports, generatePermanentErrorsReport(key, errorRanges, isRangeOpened))
 		}
 	}
 	return reports

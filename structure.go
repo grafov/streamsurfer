@@ -245,8 +245,9 @@ type Report struct {
 
 // Notes last checked point for the stream.
 type CheckPoint struct {
-	Tid     int64
-	Occured time.Time
+	Tid         int64
+	Occured     time.Time
+	OpenedRange *ErrRange // last non closed error range
 }
 
 // Range of errors in the stream. For usage in reports.
