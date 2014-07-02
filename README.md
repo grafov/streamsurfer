@@ -1,8 +1,7 @@
 Stream Surfer
 =============
 
-**The code is experimental. Undocumented. Not completed. Though it works for me.**
-**I not recommend to use it until stable version published.**
+**Current state: code broken now. Don't use!**
 
 Stream Surfer — probe utiliy for HTTP video streaming. The utility detects errors in
 HTTP Streams (Apple HLS now supported) and monitor health of any HTTP resources. It may
