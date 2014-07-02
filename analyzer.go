@@ -41,7 +41,7 @@ func ProblemAnalyzer() {
 				key = Key{gname, stream.Name}
 				if _, ok := lastAnalyzed[key]; !ok {
 					startpoint := time.Now().Add(-2 * time.Hour)
-					lastAnalyzed[key] = CheckPoint{0, startpoint}
+					lastAnalyzed[key] = CheckPoint{0, startpoint, nil}
 				}
 				checkPoint := lastAnalyzed[key]
 				hist, err := LoadHistoryResults(key) // TODO загружать только результаты после времени lastAnalyzed
@@ -140,7 +140,7 @@ func analyzeHLS(key Key, hist []KeepedResult, lastCheck *CheckPoint) (reports []
 		}
 	}
 
-	lastCheck = &CheckPoint{toTid, stop}
+	lastCheck = &CheckPoint{toTid, stop, nil}
 	if isRangeOpened && errlevel > 0 { // период остался незакрыт
 		errorRanges = append(errorRanges, ErrRange{fromTid, toTid, start, stop, errlevel})
 	}

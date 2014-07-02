@@ -1,6 +1,7 @@
 // HTTP client with timeouts.
 // Client from standard library lacks support of timeouts then we use this one.
 // Code taken from https://gist.github.com/dmichael/5710968
+// and also explained here http://stackoverflow.com/questions/16895294/how-to-set-timeout-for-http-get-requests-in-golang
 package main
 
 import (
