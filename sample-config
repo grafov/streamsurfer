@@ -1,0 +1,74 @@
+# -*-mode:yaml-*-
+http-api-listen: 0.0.0.0:8888
+http-api-user: root
+http-api-pass: $base64-hash-of-password-here
+user-agents: # http://www.enterpriseios.com/wiki/UserAgent http://www.useragentstring.com/pages/Mobile%20Browserlist/
+  - Mozilla/5.0 (Linux; U; Android 2.3; en-us) AppleWebKit/999+ (KHTML, like Gecko) Safari/999.9
+  - Mozilla/5.0 (Linux; U; Android 4.0.3; ko-kr; LG-L160L Build/IML74K) AppleWebkit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30
+  - Mozilla/5.0 (Linux; U; Android 4.0.3; ru-ru; HTC Sensation Build/IML74K) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30
+  - Mozilla/5.0 (iPhone; CPU iPhone OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3
+  - Mozilla/5.0 (iPad; CPU OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3
+  - Mozilla/5.0 (iPhone; CPU iPhone OS 5_0 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9A334 Safari/7534.48.3
+stubs:
+  name: "HLS monitor"
+zabbix:
+  discovery-path: /var/lib/streamsurfer/discovery.json
+  name-template: "{{.Name}}"
+  title-template: "{{.Title}}"
+unmortal:
+  - http://google.com
+  - http://ya.ru
+db-expired: 24 # hours
+defaults:
+  probers: 2
+  media-probers: 4
+  time-between-tasks: 6 # sec
+  check-broken-time: 40  # sec
+  connect-timeout: 15 # sec
+  rw-timeout: 20 # sec
+  slow-warning-timeout: 6 # sec
+  very-slow-warning-timeout: 12 # sec
+  task-ttl: 300 # sec
+  error-log: /var/log/streamsurfer/error.log
+  http-method: get
+  one-segment: true
+groups:
+  our-new-vod:
+    type: hls
+    streams:
+      - http://<censored>/30/42/sd_2013_podpolnaja_imperia_04_02_film/vod.m3u8
+      - http://<censored>/56/95/sd_2013_podpolnaja_imperia_04_06_film/vod.m3u8
+      - http://<censored>/46/73/sd_2013_podpolnaja_imperia_04_01_film/vod.m3u8
+      - http://<censored>/03/66/sd_2013_podpolnaja_imperia_04_03_film/vod.m3u8
+      - http://<censored>/71/51/sd_2013_podpolnaja_imperia_04_05_film/vod.m3u8
+      - http://<censored>/75/54/sd_2013_podpolnaja_imperia_04_07_film/vod.m3u8
+      - http://<censored>/15/46/sd_2014_game_of_thrones_04_02_film/vod.m3u8
+    probers: 3
+    media-probers: 2
+    time-between-tasks: 20 # sec
+    check-broken-time: 30  # sec
+    connect-timeout: 15 # sec
+    rw-timeout: 20 # sec
+    slow-warning-timeout: 6 # sec
+    very-slow-warning-timeout: 12 # sec
+    task-ttl: 300 # sec
+    error-log: /var/log/streamsurfer/error.log
+    http-method: get
+    one-segment: true
+    parse-method: /[0-9]+/[0-9]+/([-_a-zA-Z0-9.]+)/vod.m3u8
+  f451-live:
+    type: hls
+    streams-uri: http://<censored>/content_monitoring/?content=live
+    probers: 4
+    media-probers: 3
+    time-between-tasks: 6 # sec
+    check-broken-time: 40  # sec
+    connect-timeout: 35 # sec
+    rw-timeout: 60 # sec
+    slow-warning-timeout: 9 # sec
+    very-slow-warning-timeout: 18 # sec
+    task-ttl: 300 # sec
+    error-log: /var/log/streamsurfer/error.log
+    http-method: get
+    one-segment: true
+    parse-method: /smil:([-_a-zA-Z0-9.]+)/playlist.m3u8
