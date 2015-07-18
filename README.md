@@ -1,4 +1,4 @@
-**As I moved away from videostreaming development I not more interested in this project. So I leave code as is in unfinished state.**
+**As I moved away from videostreaming development I not more interested in this project. So I leave code as is in unfinished state. I'll continue to maintain [m3u8](https://github.com/grafov/m3u8) library as it is used in some other projects.**
 
 Stream Surfer
 =============
